@@ -7,13 +7,12 @@
 //session_set_cookie_params(1800);
 
 session_start();
-session_regenerate_id(true);
 
 require_once 'db.php';
 
 // Check if user is logged in
 function isLoggedIn() {
-    return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
+    return isset($_SESSION['user_id'])  || isset($_SESSION['user_id']);
 }
 
 // Redirect to login if not authenticated

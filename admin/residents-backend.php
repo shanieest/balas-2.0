@@ -1,25 +1,34 @@
 <?php
+// Start output buffering to prevent any accidental output
+ob_start();
 
+// Set headers first
 header('Content-Type: application/json');
 
+// Use absolute paths for includes
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/db.php';
 
 // Error reporting - disable in production
 ini_set('display_errors', 0);
-error_reporting(E_ALL);
+error_reporting(0);
 
+// Initialize response array
 $response = ['success' => false, 'message' => ''];
 
 try {
-    if (!requireAuth()) {
+    // Check authentication
+    session_start();
+    if (!isset($_SESSION['user_id'])) {
         throw new Exception('Unauthorized access', 401);
     }
 
+    // Get database connection
     if ($conn->connect_error) {
         throw new Exception('Database connection failed', 500);
     }
 
+    // Get action parameter
     $action = $_GET['action'] ?? '';
     if (empty($action)) {
         throw new Exception('No action specified', 400);
@@ -28,12 +37,12 @@ try {
     switch ($action) {
         case 'list':
             $id = $_GET['id'] ?? null;
-            $page = $_GET['page'] ?? 1;
-            $perPage = $_GET['per_page'] ?? 10;
-            $search = $_GET['search'] ?? '';
-            
+            $page = max(1, intval($_GET['page'] ?? 1));
+            $perPage = max(1, intval($_GET['per_page'] ?? 10));
+            $search = trim($_GET['search'] ?? '');
+
             if ($id) {
-                // Get single resident with account details
+                // Get single resident
                 $stmt = $conn->prepare("SELECT r.*, a.username, a.account_status, a.notes as account_notes, 
                                       a.date_processed as account_date_processed, u.username as account_processed_by
                                       FROM residents r
@@ -51,24 +60,24 @@ try {
                     throw new Exception('Resident not found', 404);
                 }
             } else {
-                // Get paginated and filtered residents list
+                // Get paginated residents
                 $offset = ($page - 1) * $perPage;
                 $searchTerm = "%$search%";
                 
-                // Count total records
+                // Count total
                 $countStmt = $conn->prepare("SELECT COUNT(*) as total FROM residents r
                                            WHERE (r.first_name LIKE ? OR r.last_name LIKE ? OR r.contact_number LIKE ?)");
                 $countStmt->bind_param("sss", $searchTerm, $searchTerm, $searchTerm);
                 $countStmt->execute();
                 $total = $countStmt->get_result()->fetch_assoc()['total'];
                 
-                // Get paginated data
+                // Get data
                 $stmt = $conn->prepare("SELECT r.*, a.account_status 
-                                       FROM residents r
-                                       LEFT JOIN resident_accounts a ON r.id = a.resident_id
-                                       WHERE (r.first_name LIKE ? OR r.last_name LIKE ? OR r.contact_number LIKE ?)
-                                       ORDER BY r.last_name, r.first_name
-                                       LIMIT ? OFFSET ?");
+                                      FROM residents r
+                                      LEFT JOIN resident_accounts a ON r.id = a.resident_id
+                                      WHERE (r.first_name LIKE ? OR r.last_name LIKE ? OR r.contact_number LIKE ?)
+                                      ORDER BY r.last_name, r.first_name
+                                      LIMIT ? OFFSET ?");
                 $stmt->bind_param("sssii", $searchTerm, $searchTerm, $searchTerm, $perPage, $offset);
                 $stmt->execute();
                 $result = $stmt->get_result();
@@ -86,12 +95,12 @@ try {
 
         case 'account_requests':
             $id = $_GET['id'] ?? null;
-            $status = $_GET['status'] ?? 'all';
-            $page = $_GET['page'] ?? 1;
-            $perPage = $_GET['per_page'] ?? 10;
-            
+            $status = in_array($_GET['status'] ?? '', ['Pending', 'Approved', 'Disapproved']) ? $_GET['status'] : 'all';
+            $page = max(1, intval($_GET['page'] ?? 1));
+            $perPage = max(1, intval($_GET['per_page'] ?? 10));
+
             if ($id) {
-                // Get single account request
+                // Get single request
                 $stmt = $conn->prepare("SELECT r.*, a.username, a.account_status, a.notes, 
                                       a.date_processed, u.username as processed_by
                                       FROM residents r
@@ -109,11 +118,11 @@ try {
                     throw new Exception('Request not found', 404);
                 }
             } else {
-                // Get paginated and filtered account requests
+                // Get paginated requests
                 $offset = ($page - 1) * $perPage;
                 $statusFilter = $status === 'all' ? '%' : $status;
                 
-                // Count total records
+                // Count total
                 $countStmt = $conn->prepare("SELECT COUNT(*) as total FROM residents r
                                            JOIN resident_accounts a ON r.id = a.resident_id
                                            WHERE a.account_status LIKE ?");
@@ -121,7 +130,7 @@ try {
                 $countStmt->execute();
                 $total = $countStmt->get_result()->fetch_assoc()['total'];
                 
-                // Get paginated data
+                // Get data
                 $stmt = $conn->prepare("SELECT r.id, r.first_name, r.last_name, r.email, r.contact_number, 
                                       a.username, a.account_status, a.date_processed, 
                                       u.username as processed_by, a.date_processed as date_requested
@@ -155,17 +164,22 @@ try {
             }
 
             // Validate and sanitize inputs
-            $firstName = validateInput($_POST['firstName'], 'First name');
-            $middleName = isset($_POST['middleName']) ? validateInput($_POST['middleName'], 'Middle name') : '';
-            $lastName = validateInput($_POST['lastName'], 'Last name');
-            $suffix = isset($_POST['suffix']) ? validateInput($_POST['suffix'], 'Suffix') : '';
-            $sex = validateInput($_POST['sex'], 'Sex', ['male', 'female']);
-            $civilStatus = validateInput($_POST['civilStatus'], 'Civil status', 
-                                       ['Single', 'Married', 'Widowed', 'Separated', 'Divorced']);
-            $birthdate = validateDate($_POST['birthdate'], 'Birthdate');
-            $address = validateInput($_POST['address'], 'Address');
-            $contactNumber = validatePhone($_POST['contactNumber']);
-            $email = isset($_POST['email']) ? validateEmail($_POST['email']) : '';
+            $firstName = $conn->real_escape_string(trim($_POST['firstName']));
+            $middleName = isset($_POST['middleName']) ? $conn->real_escape_string(trim($_POST['middleName'])) : '';
+            $lastName = $conn->real_escape_string(trim($_POST['lastName']));
+            $suffix = isset($_POST['suffix']) ? $conn->real_escape_string(trim($_POST['suffix'])) : '';
+            $sex = in_array($_POST['sex'], ['male', 'female']) ? $_POST['sex'] : '';
+            $civilStatus = in_array($_POST['civilStatus'], ['Single', 'Married', 'Widowed', 'Separated', 'Divorced']) ? $_POST['civilStatus'] : '';
+            $birthdate = $_POST['birthdate'];
+            $address = $conn->real_escape_string(trim($_POST['address']));
+            $contactNumber = preg_replace('/[^0-9]/', '', $_POST['contactNumber']);
+            $email = isset($_POST['email']) ? filter_var($_POST['email'], FILTER_VALIDATE_EMAIL) : '';
+
+            // Validate required fields
+            if (empty($sex)) throw new Exception('Invalid sex value', 400);
+            if (empty($civilStatus)) throw new Exception('Invalid civil status value', 400);
+            if (!DateTime::createFromFormat('Y-m-d', $birthdate)) throw new Exception('Invalid birthdate format', 400);
+            if (strlen($contactNumber) < 10 || strlen($contactNumber) > 15) throw new Exception('Contact number must be 10-15 digits', 400);
 
             // Calculate age
             $today = new DateTime();
@@ -191,7 +205,7 @@ try {
                         throw new Exception('Username and password are required when creating an account', 400);
                     }
 
-                    $username = validateUsername($_POST['username']);
+                    $username = $conn->real_escape_string(trim($_POST['username']));
                     $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
 
                     $stmt = $conn->prepare("INSERT INTO resident_accounts (resident_id, username, password, account_status) 
@@ -201,8 +215,6 @@ try {
                         throw new Exception('Failed to create resident account: ' . $stmt->error, 500);
                     }
                 }
-
-                logActivity($conn, getUserId(), "Added new resident: $firstName $lastName");
 
                 $response['success'] = true;
                 $response['message'] = 'Resident added successfully';
@@ -228,17 +240,22 @@ try {
             }
 
             // Validate and sanitize inputs
-            $firstName = validateInput($_POST['firstName'], 'First name');
-            $middleName = isset($_POST['middleName']) ? validateInput($_POST['middleName'], 'Middle name') : '';
-            $lastName = validateInput($_POST['lastName'], 'Last name');
-            $suffix = isset($_POST['suffix']) ? validateInput($_POST['suffix'], 'Suffix') : '';
-            $sex = validateInput($_POST['sex'], 'Sex', ['male', 'female']);
-            $civilStatus = validateInput($_POST['civilStatus'], 'Civil status', 
-                                       ['Single', 'Married', 'Widowed', 'Separated', 'Divorced']);
-            $birthdate = validateDate($_POST['birthdate'], 'Birthdate');
-            $address = validateInput($_POST['address'], 'Address');
-            $contactNumber = validatePhone($_POST['contactNumber']);
-            $email = isset($_POST['email']) ? validateEmail($_POST['email']) : '';
+            $firstName = $conn->real_escape_string(trim($_POST['firstName']));
+            $middleName = isset($_POST['middleName']) ? $conn->real_escape_string(trim($_POST['middleName'])) : '';
+            $lastName = $conn->real_escape_string(trim($_POST['lastName']));
+            $suffix = isset($_POST['suffix']) ? $conn->real_escape_string(trim($_POST['suffix'])) : '';
+            $sex = in_array($_POST['sex'], ['male', 'female']) ? $_POST['sex'] : '';
+            $civilStatus = in_array($_POST['civilStatus'], ['Single', 'Married', 'Widowed', 'Separated', 'Divorced']) ? $_POST['civilStatus'] : '';
+            $birthdate = $_POST['birthdate'];
+            $address = $conn->real_escape_string(trim($_POST['address']));
+            $contactNumber = preg_replace('/[^0-9]/', '', $_POST['contactNumber']);
+            $email = isset($_POST['email']) ? filter_var($_POST['email'], FILTER_VALIDATE_EMAIL) : '';
+
+            // Validate required fields
+            if (empty($sex)) throw new Exception('Invalid sex value', 400);
+            if (empty($civilStatus)) throw new Exception('Invalid civil status value', 400);
+            if (!DateTime::createFromFormat('Y-m-d', $birthdate)) throw new Exception('Invalid birthdate format', 400);
+            if (strlen($contactNumber) < 10 || strlen($contactNumber) > 15) throw new Exception('Contact number must be 10-15 digits', 400);
 
             // Calculate age
             $today = new DateTime();
@@ -259,8 +276,6 @@ try {
                              $email, $residentId);
 
             if ($stmt->execute()) {
-                logActivity($conn, getUserId(), "Updated resident ID $residentId");
-
                 $response['success'] = true;
                 $response['message'] = 'Resident updated successfully';
             } else {
@@ -278,8 +293,6 @@ try {
             $stmt->bind_param("i", $id);
 
             if ($stmt->execute()) {
-                logActivity($conn, getUserId(), "Verified resident ID $id");
-
                 $response['success'] = true;
                 $response['message'] = 'Resident verified successfully';
             } else {
@@ -304,12 +317,9 @@ try {
             $stmt = $conn->prepare("UPDATE resident_accounts 
                                    SET account_status = ?, processed_by = ?, date_processed = NOW(), notes = ?
                                    WHERE resident_id = ?");
-            $stmt->bind_param("sisi", $status, getUserId(), $note, $id);
+            $stmt->bind_param("sisi", $status, $_SESSION['user_id'], $note, $id);
 
             if ($stmt->execute()) {
-                $activity = $action === 'approve' ? "Approved resident account ID $id" : "Rejected resident account ID $id";
-                logActivity($conn, getUserId(), $activity);
-
                 $response['success'] = true;
                 $response['message'] = "Account request $action successfully";
             } else {
@@ -338,9 +348,7 @@ try {
                 $stmt->bind_param("i", $id);
                 
                 if ($stmt->execute()) {
-                    logActivity($conn, getUserId(), "Deleted resident ID $id");
                     $conn->commit();
-                    
                     $response['success'] = true;
                     $response['message'] = 'Resident deleted successfully';
                 } else {
@@ -375,52 +383,7 @@ try {
     $response['code'] = $e->getCode();
 }
 
+// Clean any output and send JSON
+ob_end_clean();
 echo json_encode($response);
-
-// Helper functions for validation
-function validateInput($input, $fieldName, $allowedValues = []) {
-    global $conn;
-    
-    $input = trim($input);
-    if (empty($input)) {
-        throw new Exception("$fieldName is required", 400);
-    }
-    
-    $input = $conn->real_escape_string($input);
-    
-    if (!empty($allowedValues) && !in_array($input, $allowedValues)) {
-        throw new Exception("Invalid value for $fieldName", 400);
-    }
-    
-    return $input;
-}
-
-function validateDate($date, $fieldName) {
-    $d = DateTime::createFromFormat('Y-m-d', $date);
-    if (!$d || $d->format('Y-m-d') !== $date) {
-        throw new Exception("Invalid $fieldName format. Use YYYY-MM-DD", 400);
-    }
-    return $date;
-}
-
-function validateEmail($email) {
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        throw new Exception("Invalid email address", 400);
-    }
-    return $email;
-}
-
-function validatePhone($phone) {
-    $phone = preg_replace('/[^0-9]/', '', $phone);
-    if (strlen($phone) < 10 || strlen($phone) > 15) {
-        throw new Exception("Contact number must be 10-15 digits", 400);
-    }
-    return $phone;
-}
-
-function validateUsername($username) {
-    if (!preg_match('/^[a-zA-Z0-9_]{4,20}$/', $username)) {
-        throw new Exception("Username must be 4-20 characters (letters, numbers, underscores)", 400);
-    }
-    return $username;
-}
+exit();

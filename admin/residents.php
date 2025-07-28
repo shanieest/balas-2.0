@@ -1,4 +1,5 @@
 <?php 
+// residents.php
 require_once __DIR__ . '/includes/auth.php';
 requireAuth();
 ?>
@@ -11,6 +12,7 @@ requireAuth();
     <title>Residents | Barangay Balas Admin</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link rel="stylesheet" href="css/style.css">
     <style>
         .toast-container {
@@ -55,29 +57,11 @@ requireAuth();
             border-radius: 0.25rem;
             margin-top: 1rem;
         }
-        .auth-container {
-            max-width: 1200px;
-            margin: 0 auto;
+        .pagination-info {
+            margin-top: 0.5rem;
         }
-        .form-section {
-            margin-bottom: 1.5rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid #eee;
-        }
-        .form-section-title {
-            color: #2c3e50;
-            margin-bottom: 1rem;
-        }
-        .btn-auth {
-            background-color: #3498db;
-            color: white;
-            width: 100%;
-            padding: 10px;
-            font-weight: 500;
-        }
-        .btn-auth:hover {
-            background-color: #2980b9;
-            color: white;
+        .search-box {
+            max-width: 300px;
         }
     </style>
 </head>
@@ -121,14 +105,24 @@ requireAuth();
                                                 <i class="fas fa-plus me-1"></i> Add Resident
                                             </button>
                                             <button class="btn btn-success btn-sm" onclick="exportResidents()">
-                                                <i class="fas fa-file-excel me-1"></i> Export to Excel
+                                                <i class="fas fa-file-excel me-1"></i> Export
                                             </button>
                                         </div>
                                     </div>
                                 </div>
                                 <div class="card-body">
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <div class="input-group search-box">
+                                                <input type="text" class="form-control" id="residentSearch" placeholder="Search residents...">
+                                                <button class="btn btn-outline-secondary" type="button" id="searchResidentBtn">
+                                                    <i class="fas fa-search"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div class="table-responsive">
-                                        <table id="residentsTable" class="table table-striped table-bordered">
+                                        <table id="residentsTable" class="table table-striped table-bordered" style="width:100%">
                                             <thead>
                                                 <tr>
                                                     <th>#</th>
@@ -145,6 +139,24 @@ requireAuth();
                                             </tbody>
                                         </table>
                                     </div>
+                                    <div class="row mt-2">
+                                        <div class="col-md-6">
+                                            <div class="pagination-info"></div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <nav aria-label="Residents pagination">
+                                                <ul class="pagination justify-content-end">
+                                                    <li class="page-item disabled" id="prevResidentPage">
+                                                        <a class="page-link" href="#" tabindex="-1">Previous</a>
+                                                    </li>
+                                                    <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                                                    <li class="page-item" id="nextResidentPage">
+                                                        <a class="page-link" href="#">Next</a>
+                                                    </li>
+                                                </ul>
+                                            </nav>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -158,11 +170,22 @@ requireAuth();
                                             <i class="fas fa-user-clock me-1"></i>
                                             Resident Account Requests
                                         </div>
+                                        <div class="btn-group">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                                Filter: <span id="currentFilter">All</span>
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item filter-requests" href="#" data-status="all">All Requests</a></li>
+                                                <li><a class="dropdown-item filter-requests" href="#" data-status="Pending">Pending</a></li>
+                                                <li><a class="dropdown-item filter-requests" href="#" data-status="Approved">Approved</a></li>
+                                                <li><a class="dropdown-item filter-requests" href="#" data-status="Disapproved">Disapproved</a></li>
+                                            </ul>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="card-body">
                                     <div class="table-responsive">
-                                        <table id="requestsTable" class="table table-striped table-bordered">
+                                        <table id="requestsTable" class="table table-striped table-bordered" style="width:100%">
                                             <thead>
                                                 <tr>
                                                     <th>#</th>
@@ -179,6 +202,24 @@ requireAuth();
                                                 <!-- Data will be loaded via AJAX -->
                                             </tbody>
                                         </table>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-md-6">
+                                            <div class="pagination-info"></div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <nav aria-label="Requests pagination">
+                                                <ul class="pagination justify-content-end">
+                                                    <li class="page-item disabled" id="prevRequestPage">
+                                                        <a class="page-link" href="#" tabindex="-1">Previous</a>
+                                                    </li>
+                                                    <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                                                    <li class="page-item" id="nextRequestPage">
+                                                        <a class="page-link" href="#">Next</a>
+                                                    </li>
+                                                </ul>
+                                            </nav>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -201,6 +242,7 @@ requireAuth();
                 </div>
                 <div class="modal-body">
                     <form id="addResidentForm" enctype="multipart/form-data" novalidate>
+                        <input type="hidden" name="createAccount" id="createAccount" value="false">
                         <div class="form-section">
                             <h5 class="form-section-title"><i class="fas fa-user"></i> Personal Information</h5>
                             <div class="row">
@@ -361,6 +403,142 @@ requireAuth();
         </div>
     </div>
     
+    <!-- Edit Resident Modal -->
+    <div class="modal fade" id="editResidentModal" tabindex="-1" aria-labelledby="editResidentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="editResidentModalLabel">Edit Resident</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editResidentForm" enctype="multipart/form-data" novalidate>
+                        <input type="hidden" id="editResidentId" name="id">
+                        <div class="form-section">
+                            <h5 class="form-section-title"><i class="fas fa-user"></i> Personal Information</h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="editFirstName" class="form-label">First Name *</label>
+                                        <input type="text" class="form-control" id="editFirstName" name="firstName" required>
+                                        <div class="invalid-feedback">Please provide a first name.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="editLastName" class="form-label">Last Name *</label>
+                                        <input type="text" class="form-control" id="editLastName" name="lastName" required>
+                                        <div class="invalid-feedback">Please provide a last name.</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="editMiddleName" class="form-label">Middle Name</label>
+                                        <input type="text" class="form-control" id="editMiddleName" name="middleName">
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="editSuffix" class="form-label">Suffix</label>
+                                        <input type="text" class="form-control" id="editSuffix" name="suffix">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="editSex" class="form-label">Sex *</label>
+                                        <select class="form-select" id="editSex" name="sex" required>
+                                            <option value="">Select...</option>
+                                            <option value="male">Male</option>
+                                            <option value="female">Female</option>
+                                        </select>
+                                        <div class="invalid-feedback">Please select a sex.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="editCivilStatus" class="form-label">Civil Status *</label>
+                                        <select class="form-select" id="editCivilStatus" name="civilStatus" required>
+                                            <option value="">Select...</option>
+                                            <option value="Single">Single</option>
+                                            <option value="Married">Married</option>
+                                            <option value="Widowed">Widowed</option>
+                                            <option value="Separated">Separated</option>
+                                            <option value="Divorced">Divorced</option>
+                                        </select>
+                                        <div class="invalid-feedback">Please select civil status.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-section">
+                            <h5 class="form-section-title"><i class="fas fa-address-card"></i> Contact Information</h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="editContactNumber" class="form-label">Contact Number *</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-phone"></i></span>
+                                            <input type="tel" class="form-control" id="editContactNumber" name="contactNumber" required>
+                                        </div>
+                                        <div class="invalid-feedback">Please provide a contact number.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="editEmail" class="form-label">Email Address</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                            <input type="email" class="form-control" id="editEmail" name="email">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="editAddress" class="form-label">Complete Address *</label>
+                                <textarea class="form-control" id="editAddress" name="address" rows="2" required></textarea>
+                                <div class="invalid-feedback">Please provide a complete address.</div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-section">
+                            <h5 class="form-section-title"><i class="fas fa-calendar-alt"></i> Birth Information</h5>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="editBirthdate" class="form-label">Birthdate *</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text"><i class="fas fa-calendar"></i></span>
+                                            <input type="date" class="form-control" id="editBirthdate" name="birthdate" required>
+                                        </div>
+                                        <div class="invalid-feedback">Please provide a birthdate.</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="editAge" class="form-label">Age</label>
+                                        <input type="number" class="form-control" id="editAge" name="age" readonly>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="updateResidentBtn">Update Resident</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <!-- View Resident Modal -->
     <div class="modal fade" id="viewResidentModal" tabindex="-1" aria-labelledby="viewResidentModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -372,7 +550,7 @@ requireAuth();
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-md-4 text-center">
-                            <img src="" class="img-thumbnail mb-3 resident-photo" width="150">
+                            <img src="img/default-profile.jpg" class="img-thumbnail mb-3 resident-photo" width="150">
                             <h5 class="resident-name"></h5>
                             <p class="text-muted resident-id"></p>
                             <span class="badge verification-badge mb-2"></span>
@@ -442,7 +620,7 @@ requireAuth();
                             <hr>
 
                             <h6 class="mb-3">Valid ID:</h6>
-                            <img src="" class="img-fluid rounded border img-preview resident-valid-id" alt="Valid ID">
+                            <img src="img/default-id.jpg" class="img-fluid rounded border img-preview resident-valid-id" alt="Valid ID">
                             
                             <!-- Account Information Section -->
                             <div class="account-details mt-4" style="display: none;">
@@ -520,7 +698,7 @@ requireAuth();
                 <div class="modal-body">
                     <div class="row">
                         <div class="col-md-4 text-center">
-                            <img src="" class="img-thumbnail mb-3 request-photo" width="150">
+                            <img src="img/default-profile.jpg" class="img-thumbnail mb-3 request-photo" width="150">
                             <h5 class="request-name"></h5>
                             <p class="text-muted request-id"></p>
                             <span class="badge request-status-badge mb-2"></span>
@@ -597,7 +775,7 @@ requireAuth();
                             <hr>
 
                             <h6 class="mb-3">Valid ID:</h6>
-                            <img src="" class="img-fluid rounded border img-preview request-valid-id" alt="Valid ID">
+                            <img src="img/default-id.jpg" class="img-fluid rounded border img-preview request-valid-id" alt="Valid ID">
                             
                             <!-- Request Details -->
                             <div class="account-details mt-4">
@@ -723,853 +901,1073 @@ requireAuth();
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
     <script src="js/script.js"></script>
-    <script>
-        // Global variables
-        let currentResidentId = null;
-        let currentRequestId = null;
+<script>
+    // Global variables
+    let currentResidentId = null;
+    let currentRequestId = null;
+    let currentResidentPage = 1;
+    let currentRequestPage = 1;
+    let currentRequestFilter = 'all';
+    let currentResidentSearch = '';
+    const perPage = 10;
+    
+    // Function to safely get DOM elements
+    function getElement(selector) {
+        const el = document.querySelector(selector);
+        if (!el) {
+            console.warn(`Element not found: ${selector}`);
+        }
+        return el;
+    }
+    
+    // Function to show toast notifications
+    function showToast(message, type = 'success') {
+        let toastContainer = getElement('.toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+            document.body.appendChild(toastContainer);
+        }
         
-        // Function to show toast notifications
-        function showToast(message, type = 'success') {
-            let toastContainer = document.querySelector('.toast-container');
-            if (!toastContainer) {
-                toastContainer = document.createElement('div');
-                toastContainer.className = 'toast-container';
-                document.body.appendChild(toastContainer);
+        const toastElement = document.createElement('div');
+        toastElement.className = `toast align-items-center text-white bg-${type} border-0`;
+        toastElement.setAttribute('role', 'alert');
+        toastElement.setAttribute('aria-live', 'assertive');
+        toastElement.setAttribute('aria-atomic', 'true');
+        
+        toastElement.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        `;
+        
+        toastContainer.appendChild(toastElement);
+        const toast = new bootstrap.Toast(toastElement);
+        toast.show();
+        
+        toastElement.addEventListener('hidden.bs.toast', () => {
+            toastElement.remove();
+        });
+    }
+
+    // Function to refresh resident list with pagination and search
+    function refreshResidentList(page = 1, search = '') {
+        currentResidentPage = page;
+        currentResidentSearch = search;
+        
+        const url = `residents-backend.php?action=list&page=${page}&per_page=${perPage}&search=${encodeURIComponent(search)}`;
+        
+        fetch(url)
+            .then(handleResponse)
+            .then(data => {
+                if (data.success) {
+                    renderResidentsTable(data.data, data.pagination);
+                } else {
+                    showToast(data.message || 'Failed to load residents', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Failed to load residents: ' + error.message, 'danger');
+            });
+    }
+
+    // Function to render residents table with data
+    function renderResidentsTable(residents, pagination) {
+        const tableBody = getElement('#residentsTable tbody');
+        if (!tableBody) return;
+        
+        tableBody.innerHTML = '';
+        
+        residents.forEach((resident, index) => {
+            const row = createResidentRow(resident, index);
+            tableBody.appendChild(row);
+        });
+        
+        updatePagination('resident', pagination);
+        addButtonEventListeners();
+    }
+
+    // Function to create a resident table row
+    function createResidentRow(resident, index) {
+        const row = document.createElement('tr');
+        
+        // Account status badge
+        const accountStatusBadge = createAccountStatusBadge(resident.account_status);
+        
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${resident.last_name}, ${resident.first_name} ${resident.middle_name || ''} ${resident.suffix || ''}</td>
+            <td>${resident.email || 'N/A'}</td>
+            <td>${resident.contact_number}</td>
+            <td>${resident.birthdate}</td>
+            <td>${accountStatusBadge}</td>
+            <td>
+                <button class="btn btn-sm btn-info view-btn" data-id="${resident.id}">
+                    <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn btn-sm btn-warning edit-btn" data-id="${resident.id}">
+                    <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-sm btn-danger delete-btn" data-id="${resident.id}">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </td>
+        `;
+        
+        return row;
+    }
+
+    // Function to create account status badge
+    function createAccountStatusBadge(status) {
+        if (!status) return '<span class="badge bg-secondary">No Account</span>';
+        
+        const badgeClasses = {
+            'Approved': 'account-approved',
+            'Pending': 'account-pending',
+            'Disapproved': 'account-disapproved'
+        };
+        
+        const badgeClass = badgeClasses[status] || 'bg-secondary';
+        return `<span class="badge ${badgeClass}">${status}</span>`;
+    }
+
+    // Function to update pagination controls
+    function updatePagination(type, pagination) {
+        const prefix = type === 'resident' ? 'resident' : 'request';
+        const totalPages = pagination.total_pages;
+        const currentPage = pagination.page;
+        
+        // Update pagination info
+        const paginationInfo = getElement(`#${prefix}-pagination .pagination-info`);
+        if (paginationInfo) {
+            const startItem = (currentPage - 1) * perPage + 1;
+            const endItem = Math.min(currentPage * perPage, pagination.total);
+            paginationInfo.textContent = `Showing ${startItem} to ${endItem} of ${pagination.total} entries`;
+        }
+        
+        // Update pagination buttons
+        const prevBtn = document.getElementById(`prev${prefix.charAt(0).toUpperCase() + prefix.slice(1)}Page`);
+        const nextBtn = document.getElementById(`next${prefix.charAt(0).toUpperCase() + prefix.slice(1)}Page`);
+        
+        if (prevBtn) prevBtn.classList.toggle('disabled', currentPage === 1);
+        if (nextBtn) nextBtn.classList.toggle('disabled', currentPage >= totalPages);
+        
+        // Update page numbers (simple implementation)
+        const paginationContainer = getElement(`#${prefix}-pagination .pagination`);
+        if (paginationContainer) {
+            const pageItems = paginationContainer.querySelectorAll('.page-item:not(:first-child):not(:last-child)');
+            pageItems.forEach(item => item.remove());
+            
+            // Add page numbers
+            for (let i = 1; i <= totalPages; i++) {
+                const pageItem = document.createElement('li');
+                pageItem.className = `page-item ${i === currentPage ? 'active' : ''}`;
+                pageItem.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+                
+                pageItem.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (type === 'resident') {
+                        refreshResidentList(i, currentResidentSearch);
+                    } else {
+                        refreshAccountRequests(i, currentRequestFilter);
+                    }
+                });
+                
+                if (nextBtn) {
+                    nextBtn.parentNode.insertBefore(pageItem, nextBtn);
+                }
             }
-            
-            const toastElement = document.createElement('div');
-            toastElement.className = `toast align-items-center text-white bg-${type} border-0`;
-            toastElement.setAttribute('role', 'alert');
-            toastElement.setAttribute('aria-live', 'assertive');
-            toastElement.setAttribute('aria-atomic', 'true');
-            
-            toastElement.innerHTML = `
-                <div class="d-flex">
-                    <div class="toast-body">${message}</div>
-                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-                </div>
-            `;
-            
-            toastContainer.appendChild(toastElement);
-            const toast = new bootstrap.Toast(toastElement);
-            toast.show();
-            
-            toastElement.addEventListener('hidden.bs.toast', function() {
-                toastElement.remove();
+        }
+    }
+
+    // Function to refresh account requests with pagination and filtering
+    function refreshAccountRequests(page = 1, status = 'all') {
+        currentRequestPage = page;
+        currentRequestFilter = status;
+        
+        const url = `residents-backend.php?action=account_requests&page=${page}&per_page=${perPage}&status=${status}`;
+        
+        fetch(url)
+            .then(handleResponse)
+            .then(data => {
+                if (data.success) {
+                    renderRequestsTable(data.data, data.pagination);
+                    updatePendingCount(data.data);
+                } else {
+                    showToast(data.message || 'Failed to load account requests', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Failed to load account requests: ' + error.message, 'danger');
             });
-        }
+    }
 
-        // Function to refresh resident list
-        function refreshResidentList() {
-            fetch('residents-backend.php?action=list')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.text().then(text => {
-                        try {
-                            return JSON.parse(text);
-                        } catch (e) {
-                            throw new Error('Invalid JSON response: ' + text.substring(0, 100));
-                        }
-                    });
-                })
-                .then(data => {
-                    if (data.success) {
-                        const tableBody = document.querySelector('#residentsTable tbody');
-                        if (!tableBody) return;
-                        
-                        tableBody.innerHTML = '';
-                        
-                        data.data.forEach((resident, index) => {
-                            // Account status badge
-                            let accountStatusBadge = '';
-                            if (resident.account_status === 'Approved') {
-                                accountStatusBadge = '<span class="badge account-status-badge account-approved">Approved</span>';
-                            } else if (resident.account_status === 'Pending') {
-                                accountStatusBadge = '<span class="badge account-status-badge account-pending">Pending</span>';
-                            } else if (resident.account_status === 'Disapproved') {
-                                accountStatusBadge = '<span class="badge account-status-badge account-disapproved">Disapproved</span>';
-                            } else {
-                                accountStatusBadge = '<span class="badge bg-secondary">No Account</span>';
-                            }
-                            
-                            const row = document.createElement('tr');
-                            row.innerHTML = `
-                                <td>${index + 1}</td>
-                                <td>${resident.last_name}, ${resident.first_name} ${resident.middle_name || ''} ${resident.suffix || ''}</td>
-                                <td>${resident.email || 'N/A'}</td>
-                                <td>${resident.contact_number}</td>
-                                <td>${resident.birthdate}</td>
-                                <td>${accountStatusBadge}</td>
-                                <td>
-                                    <button class="btn btn-sm btn-info view-btn" data-id="${resident.id}">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-warning edit-btn" data-id="${resident.id}">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-danger delete-btn" data-id="${resident.id}">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </td>
-                            `;
-                            tableBody.appendChild(row);
-                        });
-                        
-                        addButtonEventListeners();
-                    } else {
-                        showToast(data.message || 'Failed to load residents', 'danger');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showToast('Failed to load residents: ' + error.message, 'danger');
-                });
-        }
+    // Function to render requests table with data
+    function renderRequestsTable(requests, pagination) {
+        const tableBody = getElement('#requestsTable tbody');
+        if (!tableBody) return;
+        
+        tableBody.innerHTML = '';
+        
+        requests.forEach((request, index) => {
+            const row = createRequestRow(request, index);
+            tableBody.appendChild(row);
+        });
+        
+        updatePagination('request', pagination);
+        addRequestButtonEventListeners();
+    }
 
-        // Function to refresh account requests list
-        function refreshAccountRequests() {
-            fetch('residents-backend.php?action=account_requests')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.text().then(text => {
-                        try {
-                            return JSON.parse(text);
-                        } catch (e) {
-                            throw new Error('Invalid JSON response: ' + text.substring(0, 100));
-                        }
-                    });
-                })
-                .then(data => {
-                    if (data.success) {
-                        const tableBody = document.querySelector('#requestsTable tbody');
-                        if (!tableBody) return;
-                        
-                        tableBody.innerHTML = '';
-                        
-                        // Update pending count badge
-                        const pendingCount = data.data.filter(r => r.account_status === 'Pending').length;
-                        document.getElementById('pending-count').textContent = pendingCount;
-                        
-                        data.data.forEach((request, index) => {
-                            // Status badge
-                            let statusBadge = '';
-                            if (request.account_status === 'Approved') {
-                                statusBadge = '<span class="badge account-approved">Approved</span>';
-                            } else if (request.account_status === 'Pending') {
-                                statusBadge = '<span class="badge account-pending">Pending</span>';
-                            } else if (request.account_status === 'Disapproved') {
-                                statusBadge = '<span class="badge account-disapproved">Disapproved</span>';
-                            }
-                            
-                            // Processed by info
-                            const processedBy = request.processed_by ? 
-                                `${request.processed_by} (${request.date_processed})` : 'N/A';
-                            
-                            const row = document.createElement('tr');
-                            row.innerHTML = `
-                                <td>${index + 1}</td>
-                                <td>${request.last_name}, ${request.first_name}</td>
-                                <td>${request.email}</td>
-                                <td>${request.contact_number}</td>
-                                <td>${request.date_requested}</td>
-                                <td>${statusBadge}</td>
-                                <td>${processedBy}</td>
-                                <td>
-                                    <button class="btn btn-sm btn-info view-request-btn" data-id="${request.id}">
-                                        <i class="fas fa-eye"></i>
-                                    </button>
-                                    ${request.account_status === 'Pending' ? `
-                                    <button class="btn btn-sm btn-success approve-request-btn" data-id="${request.id}">
-                                        <i class="fas fa-check"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-danger reject-request-btn" data-id="${request.id}">
-                                        <i class="fas fa-times"></i>
-                                    </button>
-                                    ` : ''}
-                                </td>
-                            `;
-                            tableBody.appendChild(row);
-                        });
-                        
-                        addRequestButtonEventListeners();
-                    } else {
-                        showToast(data.message || 'Failed to load account requests', 'danger');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showToast('Failed to load account requests: ' + error.message, 'danger');
-                });
-        }
+    // Function to create a request table row
+    function createRequestRow(request, index) {
+        const row = document.createElement('tr');
+        
+        // Status badge
+        const statusBadge = createAccountStatusBadge(request.account_status);
+        
+        // Processed by info
+        const processedBy = request.processed_by ? 
+            `${request.processed_by} (${request.date_processed})` : 'N/A';
+        
+        // Action buttons (only show for pending requests)
+        const actionButtons = request.account_status === 'Pending' ? `
+            <button class="btn btn-sm btn-success approve-request-btn" data-id="${request.id}">
+                <i class="fas fa-check"></i>
+            </button>
+            <button class="btn btn-sm btn-danger reject-request-btn" data-id="${request.id}">
+                <i class="fas fa-times"></i>
+            </button>
+        ` : '';
+        
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${request.last_name}, ${request.first_name}</td>
+            <td>${request.email}</td>
+            <td>${request.contact_number}</td>
+            <td>${request.date_requested}</td>
+            <td>${statusBadge}</td>
+            <td>${processedBy}</td>
+            <td>
+                <button class="btn btn-sm btn-info view-request-btn" data-id="${request.id}">
+                    <i class="fas fa-eye"></i>
+                </button>
+                ${actionButtons}
+            </td>
+        `;
+        
+        return row;
+    }
 
-        // Function to add event listeners to all action buttons
-        function addButtonEventListeners() {
-            // View buttons
-            document.querySelectorAll('.view-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const residentId = this.getAttribute('data-id');
-                    viewResident(residentId);
-                });
+    // Function to update pending count badge
+    function updatePendingCount(requests) {
+        const pendingCount = requests.filter(r => r.account_status === 'Pending').length;
+        const pendingBadge = getElement('#pending-count');
+        if (pendingBadge) {
+            pendingBadge.textContent = pendingCount;
+        }
+    }
+
+    // Function to handle API responses
+    function handleResponse(response) {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.text().then(text => {
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                throw new Error('Invalid JSON response: ' + text.substring(0, 100));
+            }
+        });
+    }
+
+    // Function to add event listeners to all action buttons
+    function addButtonEventListeners() {
+        // View buttons
+        document.querySelectorAll('.view-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                viewResident(this.getAttribute('data-id'));
             });
-            
-            // Edit buttons
-            document.querySelectorAll('.edit-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const residentId = this.getAttribute('data-id');
-                    editResident(residentId);
-                });
+        });
+        
+        // Edit buttons
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                editResident(this.getAttribute('data-id'));
             });
-            
-            // Delete buttons
-            document.querySelectorAll('.delete-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const residentId = this.getAttribute('data-id');
-                    showDeleteModal(residentId);
-                });
+        });
+        
+        // Delete buttons
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                showDeleteModal(this.getAttribute('data-id'));
             });
-        }
+        });
+    }
 
-        // Function to add event listeners to request action buttons
-        function addRequestButtonEventListeners() {
-            // View request buttons
-            document.querySelectorAll('.view-request-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const requestId = this.getAttribute('data-id');
-                    viewRequest(requestId);
-                });
+    // Function to add event listeners to request action buttons
+    function addRequestButtonEventListeners() {
+        // View request buttons
+        document.querySelectorAll('.view-request-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                viewRequest(this.getAttribute('data-id'));
             });
-            
-            // Approve request buttons
-            document.querySelectorAll('.approve-request-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const requestId = this.getAttribute('data-id');
-                    showProcessRequestModal(requestId, 'approve');
-                });
+        });
+        
+        // Approve request buttons
+        document.querySelectorAll('.approve-request-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                showProcessRequestModal(this.getAttribute('data-id'), 'approve');
             });
-            
-            // Reject request buttons
-            document.querySelectorAll('.reject-request-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const requestId = this.getAttribute('data-id');
-                    showProcessRequestModal(requestId, 'reject');
-                });
+        });
+        
+        // Reject request buttons
+        document.querySelectorAll('.reject-request-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                showProcessRequestModal(this.getAttribute('data-id'), 'reject');
             });
-        }
+        });
+    }
 
-        // View resident function
-        function viewResident(id) {
-            fetch(`residents-backend.php?action=list&id=${id}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
+    // View resident function
+    function viewResident(id) {
+        fetch(`residents-backend.php?action=list&id=${id}`)
+            .then(handleResponse)
+            .then(data => {
+                if (data.success && data.data) {
+                    displayResidentModal(data.data);
+                } else {
+                    showToast('Resident not found', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Failed to load resident details: ' + error.message, 'danger');
+            });
+    }
+
+    // Display resident data in modal
+    function displayResidentModal(resident) {
+        const viewModal = getElement('#viewResidentModal');
+        if (!viewModal) return;
+        
+        // Format birthdate
+        const birthdate = new Date(resident.birthdate);
+        const formattedBirthdate = birthdate.toLocaleDateString('en-US', { 
+            year: 'numeric', month: 'long', day: 'numeric' 
+        }) + ` (${resident.age} years old)`;
+        
+        // Set verification badge class
+        const verificationClass = resident.verification_status === 'Verified' ? 'bg-success' : 
+                               resident.verification_status === 'Pending' ? 'bg-warning' : 'bg-secondary';
+        
+        // Set resident status badge class
+        const statusClass = resident.resident_status === 'Active' ? 'bg-primary' : 
+                           resident.resident_status === 'Inactive' ? 'bg-secondary' :
+                           resident.resident_status === 'Deceased' ? 'bg-dark' : 'bg-info';
+        
+        // Update modal content
+        updateModalField(viewModal, '.verification-badge', verificationClass, resident.verification_status);
+        updateModalField(viewModal, '.resident-status-badge', statusClass, resident.resident_status);
+        
+        // Update other fields
+        updateModalText(viewModal, '.resident-name', `${resident.first_name} ${resident.last_name}`);
+        updateModalText(viewModal, '.resident-id', `Resident ID: BRGY-${resident.id.toString().padStart(4, '0')}`);
+        updateModalText(viewModal, '.resident-birthdate', formattedBirthdate);
+        updateModalText(viewModal, '.resident-sex', resident.sex === 'male' ? 'Male' : 'Female');
+        updateModalText(viewModal, '.resident-civil-status', resident.civil_status || 'N/A');
+        updateModalText(viewModal, '.resident-contact', resident.contact_number);
+        updateModalText(viewModal, '.resident-email', resident.email);
+        updateModalText(viewModal, '.resident-address', resident.address || 'N/A');
+        updateModalImage(viewModal, '.resident-photo', resident.photo_path || 'img/default-profile.jpg');
+        updateModalImage(viewModal, '.resident-valid-id', resident.valid_id_path || 'img/default-id.jpg');
+
+        // Account information
+        const accountSection = viewModal.querySelector('.account-details');
+        if (accountSection) {
+            if (resident.account_status) {
+                accountSection.style.display = 'block';
+                
+                // Set account status badge
+                const accountStatusBadge = accountSection.querySelector('.account-status-badge');
+                if (accountStatusBadge) {
+                    accountStatusBadge.className = 'badge account-status-badge';
+                    if (resident.account_status === 'Approved') {
+                        accountStatusBadge.classList.add('account-approved');
+                    } else if (resident.account_status === 'Pending') {
+                        accountStatusBadge.classList.add('account-pending');
+                    } else if (resident.account_status === 'Disapproved') {
+                        accountStatusBadge.classList.add('account-disapproved');
                     }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success && data.data.length > 0) {
-                        const resident = data.data[0];
-                        const viewModal = document.getElementById('viewResidentModal');
-                        if (!viewModal) {
-                            throw new Error('View modal not found');
-                        }
-
-                        // Format birthdate
-                        const birthdate = new Date(resident.birthdate);
-                        const formattedBirthdate = birthdate.toLocaleDateString('en-US', { 
-                            year: 'numeric', month: 'long', day: 'numeric' 
-                        }) + ` (${resident.age} years old)`;
-                        
-                        // Set verification badge class
-                        const verificationClass = resident.verification_status === 'Verified' ? 'bg-success' : 
-                                               resident.verification_status === 'Pending' ? 'bg-warning' : 'bg-secondary';
-                        
-                        // Set resident status badge class
-                        const statusClass = resident.resident_status === 'Active' ? 'bg-primary' : 
-                                           resident.resident_status === 'Inactive' ? 'bg-secondary' :
-                                           resident.resident_status === 'Deceased' ? 'bg-dark' : 'bg-info';
-                        
-                        // Update modal content
-                        const verificationBadge = viewModal.querySelector('.verification-badge');
-                        if (verificationBadge) {
-                            verificationBadge.className = `badge ${verificationClass}`;
-                            verificationBadge.textContent = resident.verification_status;
-                        }
-
-                        const statusBadge = viewModal.querySelector('.resident-status-badge');
-                        if (statusBadge) {
-                            statusBadge.className = `badge ${statusClass}`;
-                            statusBadge.textContent = resident.resident_status;
-                        }
-
-                        // Update other fields
-                        const updateField = (selector, value) => {
-                            const element = viewModal.querySelector(selector);
-                            if (element) element.textContent = value || 'N/A';
-                        };
-
-                        updateField('.resident-photo', resident.photo_path || 'img/default-profile.jpg');
-                        updateField('.resident-name', `${resident.first_name} ${resident.last_name}`);
-                        updateField('.resident-id', `Resident ID: BRGY-${resident.id.toString().padStart(4, '0')}`);
-                        updateField('.resident-birthdate', formattedBirthdate);
-                        updateField('.resident-sex', resident.sex === 'male' ? 'Male' : 'Female');
-                        updateField('.resident-civil-status', resident.civil_status || 'N/A');
-                        updateField('.resident-contact', resident.contact_number);
-                        updateField('.resident-email', resident.email);
-                        updateField('.resident-address', resident.address || 'N/A');
-                        updateField('.resident-valid-id', resident.valid_id_path || 'img/default-id.jpg');
-
-                        // Account information
-                        const accountSection = viewModal.querySelector('.account-details');
-                        if (accountSection) {
-                            if (resident.account_status) {
-                                accountSection.style.display = 'block';
-                                
-                                // Set account status badge
-                                const accountStatusBadge = accountSection.querySelector('.account-status-badge');
-                                if (accountStatusBadge) {
-                                    accountStatusBadge.className = 'badge account-status-badge';
-                                    if (resident.account_status === 'Approved') {
-                                        accountStatusBadge.classList.add('account-approved');
-                                    } else if (resident.account_status === 'Pending') {
-                                        accountStatusBadge.classList.add('account-pending');
-                                    } else if (resident.account_status === 'Disapproved') {
-                                        accountStatusBadge.classList.add('account-disapproved');
-                                    }
-                                    accountStatusBadge.textContent = resident.account_status;
-                                }
-                                
-                                updateField('.resident-username', resident.username || 'N/A');
-                                updateField('.resident-processed-by', resident.account_processed_by || 'N/A');
-                                updateField('.resident-date-processed', resident.account_date_processed || 'N/A');
-                                updateField('.resident-account-notes', resident.account_notes || 'N/A');
-                            } else {
-                                accountSection.style.display = 'none';
-                            }
-                        }
-
-                        // Set verify button state
-                        const verifyBtn = document.getElementById('verifyResidentBtn');
-                        if (verifyBtn) {
-                            verifyBtn.dataset.id = resident.id;
-                            verifyBtn.disabled = resident.verification_status === 'Verified';
-                            verifyBtn.textContent = resident.verification_status === 'Verified' ? 'Verified' : 'Verify';
-                        }
-
-                        // Store current resident ID
-                        currentResidentId = resident.id;
-                        
-                        // Show the modal
-                        const modal = new bootstrap.Modal(viewModal);
-                        modal.show();
-                    } else {
-                        showToast('Resident not found', 'danger');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showToast('Failed to load resident details: ' + error.message, 'danger');
-                });
-        }
-
-        // View request function
-        function viewRequest(id) {
-            fetch(`residents-backend.php?action=account_requests&id=${id}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success && data.data.length > 0) {
-                        const request = data.data[0];
-                        const viewModal = document.getElementById('viewRequestModal');
-                        if (!viewModal) {
-                            throw new Error('View request modal not found');
-                        }
-
-                        // Format birthdate
-                        const birthdate = new Date(request.birthdate);
-                        const formattedBirthdate = birthdate.toLocaleDateString('en-US', { 
-                            year: 'numeric', month: 'long', day: 'numeric' 
-                        }) + ` (${request.age} years old)`;
-                        
-                        // Set status badge class
-                        let statusClass = '';
-                        if (request.account_status === 'Approved') {
-                            statusClass = 'account-approved';
-                        } else if (request.account_status === 'Pending') {
-                            statusClass = 'account-pending';
-                        } else if (request.account_status === 'Disapproved') {
-                            statusClass = 'account-disapproved';
-                        }
-                        
-                        // Update modal content
-                        const statusBadge = viewModal.querySelector('.request-status-badge');
-                        if (statusBadge) {
-                            statusBadge.className = `badge ${statusClass}`;
-                            statusBadge.textContent = request.account_status;
-                        }
-
-                        // Update other fields
-                        const updateField = (selector, value) => {
-                            const element = viewModal.querySelector(selector);
-                            if (element) element.textContent = value || 'N/A';
-                        };
-
-                        updateField('.request-photo', request.photo_path || 'img/default-profile.jpg');
-                        updateField('.request-name', `${request.first_name} ${request.last_name}`);
-                        updateField('.request-id', `Request ID: BRGY-REQ-${request.id.toString().padStart(4, '0')}`);
-                        updateField('.request-birthdate', formattedBirthdate);
-                        updateField('.request-sex', request.sex === 'male' ? 'Male' : 'Female');
-                        updateField('.request-civil-status', request.civil_status || 'N/A');
-                        updateField('.request-contact', request.contact_number);
-                        updateField('.request-email', request.email);
-                        updateField('.request-username', request.username);
-                        updateField('.request-address', request.address || 'N/A');
-                        updateField('.request-valid-id', request.valid_id_path || 'img/default-id.jpg');
-                        updateField('.request-date-requested', request.date_requested || 'N/A');
-                        updateField('.request-processed-by', request.processed_by || 'N/A');
-                        updateField('.request-date-processed', request.date_processed || 'N/A');
-                        updateField('.request-notes', request.notes || 'N/A');
-
-                        // Show/hide processed info section
-                        const processedInfo = viewModal.querySelector('#requestProcessedInfo');
-                        if (processedInfo) {
-                            processedInfo.style.display = request.account_status !== 'Pending' ? 'block' : 'none';
-                        }
-
-                        // Set buttons state
-                        const approveBtn = document.getElementById('approveRequestBtn');
-                        const rejectBtn = document.getElementById('rejectRequestBtn');
-                        if (approveBtn && rejectBtn) {
-                            approveBtn.dataset.id = request.id;
-                            rejectBtn.dataset.id = request.id;
-                            
-                            if (request.account_status !== 'Pending') {
-                                approveBtn.style.display = 'none';
-                                rejectBtn.style.display = 'none';
-                            } else {
-                                approveBtn.style.display = 'inline-block';
-                                rejectBtn.style.display = 'inline-block';
-                            }
-                        }
-
-                        // Store current request ID
-                        currentRequestId = request.id;
-                        
-                        // Show the modal
-                        const modal = new bootstrap.Modal(viewModal);
-                        modal.show();
-                    } else {
-                        showToast('Request not found', 'danger');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showToast('Failed to load request details: ' + error.message, 'danger');
-                });
-        }
-
-        // Edit resident function (basic implementation)
-        function editResident(id) {
-            fetch(`residents-backend.php?action=list&id=${id}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success && data.data.length > 0) {
-                        const resident = data.data[0];
-                        
-                        // Populate the edit form (you'll need to create an edit modal)
-                        // For now, we'll just show a toast
-                        showToast(`Editing resident: ${resident.first_name} ${resident.last_name}`, 'info');
-                        
-                        // In a complete implementation, you would:
-                        // 1. Open an edit modal
-                        // 2. Populate the form with resident data
-                        // 3. Handle the form submission
-                    } else {
-                        showToast('Resident not found', 'danger');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showToast('Failed to load resident details: ' + error.message, 'danger');
-                });
-        }
-
-        // Verify resident function
-        function verifyResident(id) {
-            if (confirm('Are you sure you want to verify this resident?')) {
-                fetch('residents-backend.php?action=verify', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `id=${id}`
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        showToast('Resident verified successfully');
-                        refreshResidentList();
-                        const modal = bootstrap.Modal.getInstance(document.getElementById('viewResidentModal'));
-                        if (modal) modal.hide();
-                    } else {
-                        showToast(data.message || 'Error verifying resident', 'danger');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showToast('Failed to verify resident: ' + error.message, 'danger');
-                });
+                    accountStatusBadge.textContent = resident.account_status;
+                }
+                
+                updateModalText(viewModal, '.resident-username', resident.username || 'N/A');
+                updateModalText(viewModal, '.resident-processed-by', resident.account_processed_by || 'N/A');
+                updateModalText(viewModal, '.resident-date-processed', resident.account_date_processed || 'N/A');
+                updateModalText(viewModal, '.resident-account-notes', resident.account_notes || 'N/A');
+            } else {
+                accountSection.style.display = 'none';
             }
         }
 
-        // Show delete confirmation modal
-        function showDeleteModal(id) {
-            fetch(`residents-backend.php?action=list&id=${id}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success && data.data.length > 0) {
-                        const resident = data.data[0];
-                        document.getElementById('deleteResidentName').textContent = `${resident.first_name} ${resident.last_name}`;
-                        document.getElementById('deleteResidentId').textContent = `BRGY-${resident.id.toString().padStart(4, '0')}`;
-                        document.getElementById('confirmDeleteBtn').dataset.id = resident.id;
-                        
-                        const modal = new bootstrap.Modal(document.getElementById('deleteResidentModal'));
-                        modal.show();
-                    } else {
-                        showToast('Resident not found', 'danger');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showToast('Failed to load resident details: ' + error.message, 'danger');
-                });
+        // Set verify button state
+        const verifyBtn = getElement('#verifyResidentBtn');
+        if (verifyBtn) {
+            verifyBtn.dataset.id = resident.id;
+            verifyBtn.disabled = resident.verification_status === 'Verified';
+            verifyBtn.textContent = resident.verification_status === 'Verified' ? 'Verified' : 'Verify';
         }
 
-        // Delete resident function
-        function deleteResident(id) {
-            fetch('residents-backend.php?action=delete', {
+        // Store current resident ID
+        currentResidentId = resident.id;
+        
+        // Show the modal
+        const modal = new bootstrap.Modal(viewModal);
+        modal.show();
+    }
+
+    // Helper functions for updating modal fields
+    function updateModalText(modal, selector, value) {
+        const element = modal.querySelector(selector);
+        if (element) element.textContent = value || 'N/A';
+    }
+
+    function updateModalField(modal, selector, className, value) {
+        const element = modal.querySelector(selector);
+        if (element) {
+            element.className = className;
+            element.textContent = value || 'N/A';
+        }
+    }
+
+    function updateModalImage(modal, selector, src) {
+        const element = modal.querySelector(selector);
+        if (element) element.src = src;
+    }
+
+    // View request function
+    function viewRequest(id) {
+        fetch(`residents-backend.php?action=account_requests&id=${id}`)
+            .then(handleResponse)
+            .then(data => {
+                if (data.success && data.data) {
+                    displayRequestModal(data.data);
+                } else {
+                    showToast('Request not found', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Failed to load request details: ' + error.message, 'danger');
+            });
+    }
+
+    // Display request data in modal
+    function displayRequestModal(request) {
+        const viewModal = getElement('#viewRequestModal');
+        if (!viewModal) return;
+        
+        // Format birthdate
+        const birthdate = new Date(request.birthdate);
+        const formattedBirthdate = birthdate.toLocaleDateString('en-US', { 
+            year: 'numeric', month: 'long', day: 'numeric' 
+        }) + ` (${request.age} years old)`;
+        
+        // Set status badge class
+        let statusClass = '';
+        if (request.account_status === 'Approved') {
+            statusClass = 'account-approved';
+        } else if (request.account_status === 'Pending') {
+            statusClass = 'account-pending';
+        } else if (request.account_status === 'Disapproved') {
+            statusClass = 'account-disapproved';
+        }
+        
+        // Update modal content
+        updateModalField(viewModal, '.request-status-badge', `badge ${statusClass}`, request.account_status);
+        updateModalText(viewModal, '.request-name', `${request.first_name} ${request.last_name}`);
+        updateModalText(viewModal, '.request-id', `Request ID: BRGY-REQ-${request.id.toString().padStart(4, '0')}`);
+        updateModalText(viewModal, '.request-birthdate', formattedBirthdate);
+        updateModalText(viewModal, '.request-sex', request.sex === 'male' ? 'Male' : 'Female');
+        updateModalText(viewModal, '.request-civil-status', request.civil_status || 'N/A');
+        updateModalText(viewModal, '.request-contact', request.contact_number);
+        updateModalText(viewModal, '.request-email', request.email);
+        updateModalText(viewModal, '.request-username', request.username);
+        updateModalText(viewModal, '.request-address', request.address || 'N/A');
+        updateModalImage(viewModal, '.request-photo', request.photo_path || 'img/default-profile.jpg');
+        updateModalImage(viewModal, '.request-valid-id', request.valid_id_path || 'img/default-id.jpg');
+        updateModalText(viewModal, '.request-date-requested', request.date_requested || 'N/A');
+        updateModalText(viewModal, '.request-processed-by', request.processed_by || 'N/A');
+        updateModalText(viewModal, '.request-date-processed', request.date_processed || 'N/A');
+        updateModalText(viewModal, '.request-notes', request.notes || 'N/A');
+
+        // Show/hide processed info section
+        const processedInfo = viewModal.querySelector('#requestProcessedInfo');
+        if (processedInfo) {
+            processedInfo.style.display = request.account_status !== 'Pending' ? 'block' : 'none';
+        }
+
+        // Set buttons state
+        const approveBtn = getElement('#approveRequestBtn');
+        const rejectBtn = getElement('#rejectRequestBtn');
+        if (approveBtn && rejectBtn) {
+            approveBtn.dataset.id = request.id;
+            rejectBtn.dataset.id = request.id;
+            
+            if (request.account_status !== 'Pending') {
+                approveBtn.style.display = 'none';
+                rejectBtn.style.display = 'none';
+            } else {
+                approveBtn.style.display = 'inline-block';
+                rejectBtn.style.display = 'inline-block';
+            }
+        }
+
+        // Store current request ID
+        currentRequestId = request.id;
+        
+        // Show the modal
+        const modal = new bootstrap.Modal(viewModal);
+        modal.show();
+    }
+
+    // Edit resident function
+    function editResident(id) {
+        fetch(`residents-backend.php?action=list&id=${id}`)
+            .then(handleResponse)
+            .then(data => {
+                if (data.success && data.data) {
+                    populateEditForm(data.data);
+                } else {
+                    showToast('Resident not found', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Failed to load resident details: ' + error.message, 'danger');
+            });
+    }
+
+    // Populate edit form with resident data
+    function populateEditForm(resident) {
+        const editModal = getElement('#editResidentModal');
+        if (!editModal) return;
+        
+        const editResidentId = getElement('#editResidentId');
+        const editFirstName = getElement('#editFirstName');
+        const editMiddleName = getElement('#editMiddleName');
+        const editLastName = getElement('#editLastName');
+        const editSuffix = getElement('#editSuffix');
+        const editSex = getElement('#editSex');
+        const editCivilStatus = getElement('#editCivilStatus');
+        const editContactNumber = getElement('#editContactNumber');
+        const editEmail = getElement('#editEmail');
+        const editAddress = getElement('#editAddress');
+        const editBirthdate = getElement('#editBirthdate');
+        const editAge = getElement('#editAge');
+        
+        if (editResidentId) editResidentId.value = resident.id;
+        if (editFirstName) editFirstName.value = resident.first_name;
+        if (editMiddleName) editMiddleName.value = resident.middle_name || '';
+        if (editLastName) editLastName.value = resident.last_name;
+        if (editSuffix) editSuffix.value = resident.suffix || '';
+        if (editSex) editSex.value = resident.sex;
+        if (editCivilStatus) editCivilStatus.value = resident.civil_status;
+        if (editContactNumber) editContactNumber.value = resident.contact_number;
+        if (editEmail) editEmail.value = resident.email || '';
+        if (editAddress) editAddress.value = resident.address;
+        if (editBirthdate) editBirthdate.value = resident.birthdate;
+        if (editAge) editAge.value = resident.age;
+        
+        const modal = new bootstrap.Modal(editModal);
+        modal.show();
+    }
+
+    // Update resident function
+    function updateResident() {
+        const form = getElement('#editResidentForm');
+        if (!form) return;
+        
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            return;
+        }
+
+        const formData = new FormData(form);
+        const updateBtn = getElement('#updateResidentBtn');
+        if (!updateBtn) return;
+        
+        const originalText = updateBtn.innerHTML;
+        
+        updateBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Updating...';
+        updateBtn.disabled = true;
+
+        fetch('residents-backend.php?action=edit', {
+            method: 'POST',
+            body: formData
+        })
+        .then(handleResponse)
+        .then(data => {
+            if (data.success) {
+                showToast('Resident updated successfully');
+                refreshResidentList(currentResidentPage, currentResidentSearch);
+                const modal = bootstrap.Modal.getInstance(getElement('#editResidentModal'));
+                if (modal) modal.hide();
+            } else {
+                throw new Error(data.message || 'Failed to update resident');
+            }
+        })
+        .catch(error => {
+            showToast(error.message, 'danger');
+            console.error('Error:', error);
+        })
+        .finally(() => {
+            updateBtn.innerHTML = originalText;
+            updateBtn.disabled = false;
+        });
+    }
+
+    // Verify resident function
+    function verifyResident(id) {
+        if (confirm('Are you sure you want to verify this resident?')) {
+            fetch('residents-backend.php?action=verify', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
                 body: `id=${id}`
             })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
+            .then(handleResponse)
             .then(data => {
                 if (data.success) {
-                    showToast('Resident deleted successfully');
-                    refreshResidentList();
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('deleteResidentModal'));
+                    showToast('Resident verified successfully');
+                    refreshResidentList(currentResidentPage, currentResidentSearch);
+                    const modal = bootstrap.Modal.getInstance(getElement('#viewResidentModal'));
                     if (modal) modal.hide();
                 } else {
-                    showToast(data.message || 'Error deleting resident', 'danger');
+                    throw new Error(data.message || 'Error verifying resident');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                showToast('Failed to delete resident: ' + error.message, 'danger');
+                showToast('Failed to verify resident: ' + error.message, 'danger');
             });
         }
+    }
 
-        // Show process request modal (approve/reject)
-        function showProcessRequestModal(id, action) {
-            currentRequestId = id;
-            
-            const modal = document.getElementById('processRequestModal');
-            if (!modal) return;
-            
-            const header = modal.querySelector('#processRequestModalHeader');
-            const title = modal.querySelector('#processRequestModalLabel');
-            const message = modal.querySelector('#processRequestMessage');
-            const submitBtn = modal.querySelector('#confirmProcessRequestBtn');
-            const noteTextarea = modal.querySelector('#requestNote');
-            
-            if (action === 'approve') {
-                header.className = 'modal-header bg-success text-white';
-                title.textContent = 'Approve Account Request';
-                message.textContent = 'You may provide optional notes for this approval:';
+    // Show delete confirmation modal
+    function showDeleteModal(id) {
+        fetch(`residents-backend.php?action=list&id=${id}`)
+            .then(handleResponse)
+            .then(data => {
+                if (data.success && data.data) {
+                    const deleteResidentName = getElement('#deleteResidentName');
+                    const deleteResidentId = getElement('#deleteResidentId');
+                    const confirmDeleteBtn = getElement('#confirmDeleteBtn');
+                    
+                    if (deleteResidentName) deleteResidentName.textContent = `${data.data.first_name} ${data.data.last_name}`;
+                    if (deleteResidentId) deleteResidentId.textContent = `BRGY-${data.data.id.toString().padStart(4, '0')}`;
+                    if (confirmDeleteBtn) confirmDeleteBtn.dataset.id = data.data.id;
+                    
+                    const modal = new bootstrap.Modal(getElement('#deleteResidentModal'));
+                    modal.show();
+                } else {
+                    showToast('Resident not found', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Failed to load resident details: ' + error.message, 'danger');
+            });
+    }
+
+    // Delete resident function
+    function deleteResident(id) {
+        fetch('residents-backend.php?action=delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `id=${id}`
+        })
+        .then(handleResponse)
+        .then(data => {
+            if (data.success) {
+                showToast('Resident deleted successfully');
+                refreshResidentList(currentResidentPage, currentResidentSearch);
+                const modal = bootstrap.Modal.getInstance(getElement('#deleteResidentModal'));
+                if (modal) modal.hide();
+            } else {
+                throw new Error(data.message || 'Error deleting resident');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Failed to delete resident: ' + error.message, 'danger');
+        });
+    }
+
+    // Show process request modal (approve/reject)
+    function showProcessRequestModal(id, action) {
+        currentRequestId = id;
+        
+        const modal = getElement('#processRequestModal');
+        if (!modal) return;
+        
+        const header = modal.querySelector('#processRequestModalHeader');
+        const title = modal.querySelector('#processRequestModalLabel');
+        const message = modal.querySelector('#processRequestMessage');
+        const submitBtn = modal.querySelector('#confirmProcessRequestBtn');
+        const noteTextarea = modal.querySelector('#requestNote');
+        
+        if (action === 'approve') {
+            if (header) header.className = 'modal-header bg-success text-white';
+            if (title) title.textContent = 'Approve Account Request';
+            if (message) message.textContent = 'You may provide optional notes for this approval:';
+            if (submitBtn) {
                 submitBtn.className = 'btn btn-success';
                 submitBtn.textContent = 'Approve';
+            }
+            if (noteTextarea) {
                 noteTextarea.required = false;
                 noteTextarea.classList.remove('is-invalid');
-            } else {
-                header.className = 'modal-header bg-danger text-white';
-                title.textContent = 'Reject Account Request';
-                message.textContent = 'Please provide the reason for rejection (required):';
+            }
+        } else {
+            if (header) header.className = 'modal-header bg-danger text-white';
+            if (title) title.textContent = 'Reject Account Request';
+            if (message) message.textContent = 'Please provide the reason for rejection (required):';
+            if (submitBtn) {
                 submitBtn.className = 'btn btn-danger';
                 submitBtn.textContent = 'Reject';
-                noteTextarea.required = true;
             }
-            
-            document.getElementById('requestIdForProcess').value = id;
-            document.getElementById('requestActionType').value = action;
-            noteTextarea.value = '';
-            
-            const bsModal = new bootstrap.Modal(modal);
-            bsModal.show();
+            if (noteTextarea) noteTextarea.required = true;
+        }
+        
+        const requestIdForProcess = getElement('#requestIdForProcess');
+        const requestActionType = getElement('#requestActionType');
+        
+        if (requestIdForProcess) requestIdForProcess.value = id;
+        if (requestActionType) requestActionType.value = action;
+        if (noteTextarea) noteTextarea.value = '';
+        
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+    }
+
+    // Process account request (approve/reject)
+    function processAccountRequest(id, action, note) {
+        // Validate that rejection has a note
+        if (action === 'reject' && !note.trim()) {
+            const noteInput = getElement('#requestNote');
+            if (noteInput) noteInput.classList.add('is-invalid');
+            showToast('Please provide a reason for rejection', 'danger');
+            return;
         }
 
-        // Process account request (approve/reject)
-        function processAccountRequest(id, action, note) {
-            // Validate that rejection has a note
-            if (action === 'reject' && !note.trim()) {
-                document.getElementById('requestNote').classList.add('is-invalid');
-                showToast('Please provide a reason for rejection', 'danger');
-                return;
+        fetch('residents-backend.php?action=process_request', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `id=${id}&action=${action}&note=${encodeURIComponent(note)}`
+        })
+        .then(handleResponse)
+        .then(data => {
+            if (data.success) {
+                showToast(`Account request ${action}d successfully`);
+                refreshAccountRequests(currentRequestPage, currentRequestFilter);
+                refreshResidentList(currentResidentPage, currentResidentSearch);
+                
+                // Close modals
+                const processModal = bootstrap.Modal.getInstance(getElement('#processRequestModal'));
+                if (processModal) processModal.hide();
+                
+                const viewModal = bootstrap.Modal.getInstance(getElement('#viewRequestModal'));
+                if (viewModal) viewModal.hide();
+            } else {
+                throw new Error(data.message || `Error ${action}ing request`);
             }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast(`Failed to ${action} request: ` + error.message, 'danger');
+        });
+    }
 
-            fetch('residents-backend.php?action=process_request', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: `id=${id}&action=${action}&note=${encodeURIComponent(note)}`
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
+    // Export to Excel function
+    function exportResidents() {
+        window.location.href = 'residents-backend.php?action=export';
+    }
+
+    // Initialize when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load initial resident list and account requests
+        refreshResidentList();
+        refreshAccountRequests();
+        
+        // Toggle account creation fields
+        const createAccountCheck = getElement('#createAccountCheck');
+        const accountFields = getElement('#accountFields');
+        if (createAccountCheck && accountFields) {
+            createAccountCheck.addEventListener('change', function() {
+                accountFields.style.display = this.checked ? 'block' : 'none';
+                const createAccount = getElement('#createAccount');
+                if (createAccount) createAccount.value = this.checked ? 'true' : 'false';
+                
+                // Toggle required attribute on account fields
+                const username = getElement('#username');
+                const password = getElement('#password');
+                if (username && password) {
+                    username.required = this.checked;
+                    password.required = this.checked;
                 }
-                return response.json();
-            })
-            .then(data => {
-                if (data.success) {
-                    showToast(`Account request ${action}d successfully`);
-                    refreshAccountRequests();
-                    refreshResidentList();
-                    
-                    // Close modals
-                    const processModal = bootstrap.Modal.getInstance(document.getElementById('processRequestModal'));
-                    if (processModal) processModal.hide();
-                    
-                    const viewModal = bootstrap.Modal.getInstance(document.getElementById('viewRequestModal'));
-                    if (viewModal) viewModal.hide();
-                } else {
-                    showToast(data.message || `Error ${action}ing request`, 'danger');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showToast(`Failed to ${action} request: ` + error.message, 'danger');
             });
         }
-
-        // Export to Excel function
-        function exportResidents() {
-            window.location.href = 'residents-backend.php?action=export';
-        }
-
-        // Initialize when DOM is loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            // Load initial resident list and account requests
-            refreshResidentList();
-            refreshAccountRequests();
-            
-            // Toggle account creation fields
-            const createAccountCheck = document.getElementById('createAccountCheck');
-            const accountFields = document.getElementById('accountFields');
-            if (createAccountCheck && accountFields) {
-                createAccountCheck.addEventListener('change', function() {
-                    accountFields.style.display = this.checked ? 'block' : 'none';
-                    
-                    // Toggle required attribute on account fields
-                    const username = document.getElementById('username');
-                    const password = document.getElementById('password');
-                    if (username && password) {
-                        username.required = this.checked;
-                        password.required = this.checked;
-                    }
-                });
-            }
-            
-            // Add resident form submission
-            const saveResidentBtn = document.getElementById('saveResidentBtn');
-            if (saveResidentBtn) {
-                saveResidentBtn.addEventListener('click', async function() {
-                    const form = document.getElementById('addResidentForm');
-                    if (!form) return;
-                    
-                    if (!form.checkValidity()) {
-                        form.classList.add('was-validated');
-                        return;
-                    }
-
-                    const formData = new FormData(form);
-                    const originalText = saveResidentBtn.innerHTML;
-                    saveResidentBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
-                    saveResidentBtn.disabled = true;
-
-                    try {
-                        const response = await fetch('residents-backend.php?action=add', {
-                            method: 'POST',
-                            body: formData
-                        });
-                        
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        
-                        const data = await response.json();
-                        
-                        if (data.success) {
-                            showToast('Resident added successfully!', 'success');
-                            const modal = bootstrap.Modal.getInstance(document.getElementById('addResidentModal'));
-                            if (modal) modal.hide();
-                            form.reset();
-                            form.classList.remove('was-validated');
-                            refreshResidentList();
-                        } else {
-                            throw new Error(data.message || 'Failed to save resident');
-                        }
-                    } catch (error) {
-                        showToast(error.message, 'danger');
-                        console.error('Error:', error);
-                    } finally {
-                        saveResidentBtn.innerHTML = originalText;
-                        saveResidentBtn.disabled = false;
-                    }
-                });
-            }
-            
-            // Delete resident confirmation
-            const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
-            if (confirmDeleteBtn) {
-                confirmDeleteBtn.addEventListener('click', function() {
-                    const residentId = this.dataset.id;
-                    if (residentId) {
-                        deleteResident(residentId);
-                    }
-                });
-            }
-            
-            // Verify button in view modal
-            const verifyResidentBtn = document.getElementById('verifyResidentBtn');
-            if (verifyResidentBtn) {
-                verifyResidentBtn.addEventListener('click', function() {
-                    const residentId = this.dataset.id;
-                    if (residentId) {
-                        verifyResident(residentId);
-                    }
-                });
-            }
-            
-            // Approve/Reject request buttons in view modal
-            const approveRequestBtn = document.getElementById('approveRequestBtn');
-            const rejectRequestBtn = document.getElementById('rejectRequestBtn');
-            if (approveRequestBtn && rejectRequestBtn) {
-                approveRequestBtn.addEventListener('click', function() {
-                    const requestId = this.dataset.id;
-                    if (requestId) {
-                        showProcessRequestModal(requestId, 'approve');
-                    }
-                });
+        
+        // Add resident form submission
+        const saveResidentBtn = getElement('#saveResidentBtn');
+        if (saveResidentBtn) {
+            saveResidentBtn.addEventListener('click', function() {
+                const form = getElement('#addResidentForm');
+                if (!form) return;
                 
-                rejectRequestBtn.addEventListener('click', function() {
-                    const requestId = this.dataset.id;
-                    if (requestId) {
-                        showProcessRequestModal(requestId, 'reject');
-                    }
-                });
-            }
-            
-            // Confirm process request button
-            const confirmProcessRequestBtn = document.getElementById('confirmProcessRequestBtn');
-            if (confirmProcessRequestBtn) {
-                confirmProcessRequestBtn.addEventListener('click', function() {
-                    const requestId = document.getElementById('requestIdForProcess').value;
-                    const action = document.getElementById('requestActionType').value;
-                    const note = document.getElementById('requestNote').value;
-                    
-                    if (requestId) {
-                        processAccountRequest(requestId, action, note);
-                    }
-                });
-            }
-            
-            // Calculate age when birthdate changes
-            const birthdateInput = document.getElementById('birthdate');
-            if (birthdateInput) {
-                birthdateInput.addEventListener('change', function() {
-                    if (this.value) {
-                        const birthdate = new Date(this.value);
-                        const today = new Date();
-                        let age = today.getFullYear() - birthdate.getFullYear();
-                        const monthDiff = today.getMonth() - birthdate.getMonth();
-                        
-                        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthdate.getDate())) {
-                            age--;
-                        }
-                        
-                        const ageInput = document.getElementById('age');
-                        if (ageInput) ageInput.value = age;
-                    }
-                });
-            }
-            
-            // Reset forms when modal is closed
-            const addResidentModal = document.getElementById('addResidentModal');
-            if (addResidentModal) {
-                addResidentModal.addEventListener('hidden.bs.modal', function() {
-                    const form = document.getElementById('addResidentForm');
-                    if (form) {
+                if (!form.checkValidity()) {
+                    form.classList.add('was-validated');
+                    return;
+                }
+
+                const formData = new FormData(form);
+                const originalText = saveResidentBtn.innerHTML;
+                saveResidentBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+                saveResidentBtn.disabled = true;
+
+                fetch('residents-backend.php?action=add', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(handleResponse)
+                .then(data => {
+                    if (data.success) {
+                        showToast('Resident added successfully!', 'success');
+                        const modal = bootstrap.Modal.getInstance(getElement('#addResidentModal'));
+                        if (modal) modal.hide();
                         form.reset();
                         form.classList.remove('was-validated');
-                        document.getElementById('accountFields').style.display = 'none';
-                        document.getElementById('createAccountCheck').checked = false;
-                    }
-                });
-            }
-            
-            const processRequestModal = document.getElementById('processRequestModal');
-            if (processRequestModal) {
-                processRequestModal.addEventListener('hidden.bs.modal', function() {
-                    const noteInput = document.getElementById('requestNote');
-                    if (noteInput) {
-                        noteInput.value = '';
-                        noteInput.classList.remove('is-invalid');
-                    }
-                });
-            }
-            
-            // Tab change event to refresh data
-            const residentTabs = document.getElementById('residentTabs');
-            if (residentTabs) {
-                residentTabs.addEventListener('shown.bs.tab', function(event) {
-                    if (event.target.id === 'requests-tab') {
-                        refreshAccountRequests();
-                    } else if (event.target.id === 'verified-tab') {
                         refreshResidentList();
+                    } else {
+                        throw new Error(data.message || 'Failed to save resident');
                     }
+                })
+                .catch(error => {
+                    showToast(error.message, 'danger');
+                    console.error('Error:', error);
+                })
+                .finally(() => {
+                    saveResidentBtn.innerHTML = originalText;
+                    saveResidentBtn.disabled = false;
                 });
-            }
+            });
+        }
+        
+        // Update resident form submission
+        const updateResidentBtn = getElement('#updateResidentBtn');
+        if (updateResidentBtn) {
+            updateResidentBtn.addEventListener('click', updateResident);
+        }
+        
+        // Delete resident confirmation
+        const confirmDeleteBtn = getElement('#confirmDeleteBtn');
+        if (confirmDeleteBtn) {
+            confirmDeleteBtn.addEventListener('click', function() {
+                deleteResident(this.dataset.id);
+            });
+        }
+        
+        // Verify button in view modal
+        const verifyResidentBtn = getElement('#verifyResidentBtn');
+        if (verifyResidentBtn) {
+            verifyResidentBtn.addEventListener('click', function() {
+                verifyResident(this.dataset.id);
+            });
+        }
+        
+        // Approve/Reject request buttons in view modal
+        const approveRequestBtn = getElement('#approveRequestBtn');
+        const rejectRequestBtn = getElement('#rejectRequestBtn');
+        if (approveRequestBtn && rejectRequestBtn) {
+            approveRequestBtn.addEventListener('click', function() {
+                showProcessRequestModal(this.dataset.id, 'approve');
+            });
+            
+            rejectRequestBtn.addEventListener('click', function() {
+                showProcessRequestModal(this.dataset.id, 'reject');
+            });
+        }
+        
+        // Confirm process request button
+        const confirmProcessRequestBtn = getElement('#confirmProcessRequestBtn');
+        if (confirmProcessRequestBtn) {
+            confirmProcessRequestBtn.addEventListener('click', function() {
+                const requestId = getElement('#requestIdForProcess')?.value;
+                const action = getElement('#requestActionType')?.value;
+                const note = getElement('#requestNote')?.value;
+                
+                if (requestId) {
+                    processAccountRequest(requestId, action, note);
+                }
+            });
+        }
+        
+        // Calculate age when birthdate changes
+        const birthdateInput = getElement('#birthdate');
+        if (birthdateInput) {
+            birthdateInput.addEventListener('change', function() {
+                if (this.value) {
+                    const birthdate = new Date(this.value);
+                    const today = new Date();
+                    let age = today.getFullYear() - birthdate.getFullYear();
+                    const monthDiff = today.getMonth() - birthdate.getMonth();
+                    
+                    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthdate.getDate())) {
+                        age--;
+                    }
+                    
+                    const ageInput = getElement('#age');
+                    if (ageInput) ageInput.value = age;
+                }
+            });
+        }
+        
+        // Edit form birthdate change handler
+        const editBirthdateInput = getElement('#editBirthdate');
+        if (editBirthdateInput) {
+            editBirthdateInput.addEventListener('change', function() {
+                if (this.value) {
+                    const birthdate = new Date(this.value);
+                    const today = new Date();
+                    let age = today.getFullYear() - birthdate.getFullYear();
+                    const monthDiff = today.getMonth() - birthdate.getMonth();
+                    
+                    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthdate.getDate())) {
+                        age--;
+                    }
+                    
+                    const ageInput = getElement('#editAge');
+                    if (ageInput) ageInput.value = age;
+                }
+            });
+        }
+        
+        // Search residents
+        const searchResidentBtn = getElement('#searchResidentBtn');
+        const residentSearchInput = getElement('#residentSearch');
+        if (searchResidentBtn && residentSearchInput) {
+            searchResidentBtn.addEventListener('click', function() {
+                refreshResidentList(1, residentSearchInput.value);
+            });
+            
+            residentSearchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    refreshResidentList(1, this.value);
+                }
+            });
+        }
+        
+        // Filter account requests
+        document.querySelectorAll('.filter-requests').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const status = this.getAttribute('data-status');
+                const currentFilter = getElement('#currentFilter');
+                if (currentFilter) currentFilter.textContent = status === 'all' ? 'All' : status;
+                refreshAccountRequests(1, status);
+            });
         });
-    </script>
+        
+        // Pagination controls
+        const prevResidentPage = getElement('#prevResidentPage');
+        const nextResidentPage = getElement('#nextResidentPage');
+        const prevRequestPage = getElement('#prevRequestPage');
+        const nextRequestPage = getElement('#nextRequestPage');
+        
+        if (prevResidentPage) {
+            prevResidentPage.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (currentResidentPage > 1) {
+                    refreshResidentList(currentResidentPage - 1, currentResidentSearch);
+                }
+            });
+        }
+        
+        if (nextResidentPage) {
+            nextResidentPage.addEventListener('click', function(e) {
+                e.preventDefault();
+                refreshResidentList(currentResidentPage + 1, currentResidentSearch);
+            });
+        }
+        
+        if (prevRequestPage) {
+            prevRequestPage.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (currentRequestPage > 1) {
+                    refreshAccountRequests(currentRequestPage - 1, currentRequestFilter);
+                }
+            });
+        }
+        
+        if (nextRequestPage) {
+            nextRequestPage.addEventListener('click', function(e) {
+                e.preventDefault();
+                refreshAccountRequests(currentRequestPage + 1, currentRequestFilter);
+            });
+        }
+        
+        // Reset forms when modal is closed
+        const addResidentModal = getElement('#addResidentModal');
+        if (addResidentModal) {
+            addResidentModal.addEventListener('hidden.bs.modal', function() {
+                const form = getElement('#addResidentForm');
+                if (form) {
+                    form.reset();
+                    form.classList.remove('was-validated');
+                    const accountFields = getElement('#accountFields');
+                    if (accountFields) accountFields.style.display = 'none';
+                    const createAccountCheck = getElement('#createAccountCheck');
+                    if (createAccountCheck) createAccountCheck.checked = false;
+                    const createAccount = getElement('#createAccount');
+                    if (createAccount) createAccount.value = 'false';
+                }
+            });
+        }
+        
+        const editResidentModal = getElement('#editResidentModal');
+        if (editResidentModal) {
+            editResidentModal.addEventListener('hidden.bs.modal', function() {
+                const form = getElement('#editResidentForm');
+                if (form) {
+                    form.classList.remove('was-validated');
+                }
+            });
+        }
+        
+        const processRequestModal = getElement('#processRequestModal');
+        if (processRequestModal) {
+            processRequestModal.addEventListener('hidden.bs.modal', function() {
+                const noteInput = getElement('#requestNote');
+                if (noteInput) {
+                    noteInput.value = '';
+                    noteInput.classList.remove('is-invalid');
+                }
+            });
+        }
+    });
+</script>
 </body>
 </html>
