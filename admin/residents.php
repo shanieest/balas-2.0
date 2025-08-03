@@ -860,7 +860,7 @@ requireAuth();
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
     <script src="js/script.js"></script>
- <script>
+<script>
     // Global variables
 let currentResidentId = null;
 let currentRequestId = null;
@@ -938,6 +938,13 @@ function renderResidentsTable(residents, pagination) {
     if (!tableBody) return;
     
     tableBody.innerHTML = '';
+    
+    if (!residents || residents.length === 0) {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td colspan="7" class="text-center">No residents found</td>`;
+        tableBody.appendChild(row);
+        return;
+    }
     
     residents.forEach((resident, index) => {
         const row = createResidentRow(resident, index);
@@ -1053,7 +1060,7 @@ function refreshAccountRequests(page = 1, status = 'all') {
         .then(data => {
             if (data.success) {
                 renderRequestsTable(data.data, data.pagination);
-                updatePendingCount(data.data);
+                updatePendingCount(data.pending_count || 0);
             } else {
                 showToast(data.message || 'Failed to load account requests', 'danger');
             }
@@ -1070,6 +1077,13 @@ function renderRequestsTable(requests, pagination) {
     if (!tableBody) return;
     
     tableBody.innerHTML = '';
+    
+    if (!requests || requests.length === 0) {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td colspan="8" class="text-center">No requests found</td>`;
+        tableBody.appendChild(row);
+        return;
+    }
     
     requests.forEach((request, index) => {
         const row = createRequestRow(request, index);
@@ -1121,11 +1135,11 @@ function createRequestRow(request, index) {
 }
 
 // Function to update pending count badge
-function updatePendingCount(requests) {
-    const pendingCount = requests.filter(r => r.account_status === 'Pending').length;
+function updatePendingCount(pendingCount) {
     const pendingBadge = getElement('#pending-count');
     if (pendingBadge) {
         pendingBadge.textContent = pendingCount;
+        pendingBadge.style.display = pendingCount > 0 ? 'inline-block' : 'none';
     }
 }
 
@@ -1976,6 +1990,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
- </script>
+</script>
 </body>
 </html>

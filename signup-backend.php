@@ -84,7 +84,7 @@ $stmt->close();
 $sql = "INSERT INTO resident_accounts 
         (first_name, middle_name, last_name, suffix, birthdate, age, sex, email, phone, 
          house_no, purok, full_address, password, id_type, id_number, id_file) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
 $stmt = $conn->prepare($sql);
 if (!$stmt) {
@@ -92,7 +92,7 @@ if (!$stmt) {
 }
 
 $bindResult = $stmt->bind_param(
-    "sssssisssssssss",
+    "sssssissssssssss",
     $firstName,
     $middleName,
     $lastName,
