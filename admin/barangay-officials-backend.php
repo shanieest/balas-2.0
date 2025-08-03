@@ -1,9 +1,10 @@
 <?php
+
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/db.php';
 requireAuth();
 
-// Only allow AJAX requests for backend files
+// Only allow AJAX requests for backend
 if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || 
     strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) !== 'xmlhttprequest') {
     header('HTTP/1.0 403 Forbidden');

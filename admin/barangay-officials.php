@@ -267,7 +267,7 @@ requireAuth();
             // Load officials data
             loadOfficials();
             
-            // Add event listeners for modals
+            // event listeners for modals
             document.getElementById('addOfficialForm').addEventListener('submit', addOfficial);
             document.getElementById('editOfficialForm').addEventListener('submit', updateOfficial);
             document.getElementById('confirmDeleteBtn').addEventListener('click', deleteOfficial);
@@ -283,13 +283,13 @@ requireAuth();
             fetch('barangay-officials-backend.php?action=get_officials')
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error('Network response was not ok');
+                        throw new Error('Error');
                     }
                     return response.json();
                 })
                 .then(data => {
                     if (!data.success) {
-                        throw new Error(data.message || 'Failed to load officials');
+                        throw new Error(data.message || 'Error: Failed to load officials');
                     }
                     
                     const tableBody = document.querySelector('#officialsTable tbody');

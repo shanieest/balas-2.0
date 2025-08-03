@@ -1,88 +1,121 @@
 <?php
 require_once 'includes/db.php';
 
-// Sanitize helper
-function sanitize($data, $conn) {
-    return htmlspecialchars(mysqli_real_escape_string($conn, trim($data)));
+
+$firstName = trim($_POST['firstName']);
+$middleName = trim($_POST['middleName']);
+$lastName = trim($_POST['lastName']);
+$suffix = trim($_POST['suffix']);
+$birthdate = date('Y-m-d', strtotime($_POST['birthdate']));
+$sex = $_POST['sex'];
+$email = trim($_POST['registerEmail']);
+$phone = trim($_POST['phone']);
+$houseNo = trim($_POST['house_no']);
+$purok = trim($_POST['purok']);
+$fullAddress = trim($_POST['full_address']);
+$password = $_POST['registerPassword'];
+$confirmPassword = $_POST['confirmPassword'];
+$idType = ($_POST['idType'] == 'other') ? trim($_POST['otherIdType']) : $_POST['idType'];
+$idNumber = trim($_POST['idNumber']);
+
+// Validate Password
+if ($password !== $confirmPassword) {
+    die("Passwords do not match.");
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // Sanitize inputs
-    $first_name    = sanitize($_POST['firstName'], $conn);
-    $last_name     = sanitize($_POST['lastName'], $conn);
-    $birthdate     = sanitize($_POST['birthdate'], $conn);
-    $sex           = sanitize($_POST['sex'], $conn);
-    $email         = sanitize($_POST['registerEmail'], $conn);
-    $phone         = sanitize($_POST['phone'], $conn);
-    $address       = sanitize($_POST['address'], $conn);
-    $password      = $_POST['registerPassword'];
-    $confirm       = $_POST['confirmPassword'];
-    $id_type       = sanitize($_POST['idType'], $conn);
-    $id_number     = sanitize($_POST['idNumber'], $conn);
+if (strlen($password) < 8) {
+    die("Password must be at least 8 characters long.");
+}
 
-    // Validate passwords
-    if ($password !== $confirm) {
-        die('Passwords do not match.');
+// Hash Password
+$hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+
+// Handle ID Upload
+$targetDir = "uploads/ids/";
+if (!is_dir($targetDir)) {
+    if (!mkdir($targetDir, 0777, true)) {
+        die("Failed to create upload directory.");
     }
+}
 
-    if (strlen($password) < 8) {
-        die('Password must be at least 8 characters long.');
-    }
+$idFileName = basename($_FILES["idUpload"]["name"]);
+$idFileTmp = $_FILES["idUpload"]["tmp_name"];
+$idFileSize = $_FILES["idUpload"]["size"];
+$idFileType = strtolower(pathinfo($idFileName, PATHINFO_EXTENSION));
 
-    // Check if email already exists
-    $check = $conn->prepare("SELECT id FROM residents WHERE email = ?");
-    $check->bind_param("s", $email);
-    $check->execute();
-    $check->store_result();
-    if ($check->num_rows > 0) {
-        die('This email is already registered.');
-    }
-    $check->close();
+$allowedTypes = array("jpg", "jpeg", "png", "pdf");
 
-    // Upload ID file
-    if (isset($_FILES['idUpload']) && $_FILES['idUpload']['error'] == 0) {
-        $allowed = ['jpg', 'jpeg', 'png', 'pdf'];
-        $file_name = $_FILES['idUpload']['name'];
-        $file_tmp  = $_FILES['idUpload']['tmp_name'];
-        $file_size = $_FILES['idUpload']['size'];
-        $ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+if (!in_array($idFileType, $allowedTypes)) {
+    die("Only JPG, JPEG, PNG, and PDF files are allowed.");
+}
 
-        if (!in_array($ext, $allowed)) {
-            die('Invalid file type. Only JPG, PNG, and PDF allowed.');
-        }
+if ($idFileSize > 5 * 1024 * 1024) {
+    die("File size exceeds the maximum limit of 5MB.");
+}
 
-        if ($file_size > 5 * 1024 * 1024) {
-            die('File size must not exceed 5MB.');
-        }
+$newFileName = uniqid() . "." . $idFileType;
+$targetFilePath = $targetDir . $newFileName;
 
-        $new_name = uniqid('id_') . '.' . $ext;
-        $upload_dir = 'uploads/ids/';
-        if (!is_dir($upload_dir)) {
-            mkdir($upload_dir, 0777, true);
-        }
+if (!move_uploaded_file($idFileTmp, $targetFilePath)) {
+    die("Failed to upload ID file.");
+}
 
-        move_uploaded_file($file_tmp, $upload_dir . $new_name);
-        $id_image = $upload_dir . $new_name;
-    } else {
-        die('ID upload failed. Please try again.');
-    }
+// Check if email already exists
+$checkEmailSql = "SELECT id FROM resident_accounts WHERE email = ?";
+$stmt = $conn->prepare($checkEmailSql);
+if (!$stmt) {
+    die("Error preparing email check statement: " . $conn->error);
+}
+$stmt->bind_param("s", $email);
+$stmt->execute();
+$stmt->store_result();
 
-    // Hash password
-    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-
-    // Insert to DB
-    $stmt = $conn->prepare("INSERT INTO residents (first_name, last_name, birthdate, sex, email, phone, address, password, id_type, id_number, id_image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("sssssssssss", $first_name, $last_name, $birthdate, $sex, $email, $phone, $address, $hashed_password, $id_type, $id_number, $id_image);
-
-    if ($stmt->execute()) {
-        echo 'success';
-    } else {
-        echo 'Error: ' . $stmt->error;
-    }
-
+if ($stmt->num_rows > 0) {
     $stmt->close();
-    $conn->close();
-} else {
-    echo 'Invalid request method.';
+    die("Email is already registered.");
 }
+$stmt->close();
+
+// Insert into Database
+$sql = "INSERT INTO resident_accounts 
+        (first_name, middle_name, last_name, suffix, birthdate, sex, email, phone, 
+         house_no, purok, full_address, password, id_type, id_number, id_file) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+$stmt = $conn->prepare($sql);
+if (!$stmt) {
+    die("Error preparing statement: " . $conn->error);
+}
+
+$bindResult = $stmt->bind_param(
+    "sssssssssssssss",
+    $firstName,
+    $middleName,
+    $lastName,
+    $suffix,
+    $birthdate,
+    $sex,
+    $email,
+    $phone,
+    $houseNo,
+    $purok,
+    $fullAddress,
+    $hashedPassword,
+    $idType,
+    $idNumber,
+    $newFileName
+);
+
+if (!$bindResult) {
+    die("Error binding parameters: " . $stmt->error);
+}
+
+if ($stmt->execute()) {
+    echo "<script>alert('Registration successful! Your account is pending approval.'); window.location.href='index.php';</script>";
+} else {
+    die("Error executing statement: " . $stmt->error);
+}
+
+$stmt->close();
+$conn->close();
 ?>

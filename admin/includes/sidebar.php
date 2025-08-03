@@ -42,6 +42,10 @@ if (isset($_SESSION['user_id'])) {
                     <div class="sb-nav-link-icon"><i class="fas fa-users"></i></div>
                     Residents
                 </a>
+                <a class="nav-link" href="census.php">
+                    <div class="sb-nav-link-icon"><i class="fas fa-user-people"></i></div>
+                    Census data
+                </a>
                 <a class="nav-link" href="document-requests.php">
                     <div class="sb-nav-link-icon"><i class="fas fa-file-alt"></i></div>
                     Document Requests

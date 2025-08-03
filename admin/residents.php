@@ -372,16 +372,6 @@ requireAuth();
                                 <div class="row">
                                     <div class="col-md-6">
                                         <div class="mb-3">
-                                            <label for="username" class="form-label">Username *</label>
-                                            <div class="input-group">
-                                                <span class="input-group-text"><i class="fas fa-user"></i></span>
-                                                <input type="text" class="form-control" id="username" name="username">
-                                            </div>
-                                            <div class="invalid-feedback">Please provide a username.</div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <div class="mb-3">
                                             <label for="password" class="form-label">Password *</label>
                                             <div class="input-group">
                                                 <span class="input-group-text"><i class="fas fa-lock"></i></span>
@@ -635,14 +625,6 @@ requireAuth();
                                                 <span class="badge account-status-badge"></span>
                                             </div>
                                         </div>
-                                        <div class="row mb-2">
-                                            <div class="col-sm-4">
-                                                <p class="mb-0"><strong>Username:</strong></p>
-                                            </div>
-                                            <div class="col-sm-8">
-                                                <p class="text-muted mb-0 resident-username"></p>
-                                            </div>
-                                        </div>
                                     </div>
                                     <div class="col-md-6">
                                         <div class="row mb-2">
@@ -746,14 +728,6 @@ requireAuth();
                                         </div>
                                         <div class="col-sm-7">
                                             <p class="text-muted mb-0 request-email"></p>
-                                        </div>
-                                    </div>
-                                    <div class="row mb-3">
-                                        <div class="col-sm-5">
-                                            <p class="mb-0"><strong>Username:</strong></p>
-                                        </div>
-                                        <div class="col-sm-7">
-                                            <p class="text-muted mb-0 request-username"></p>
                                         </div>
                                     </div>
                                 </div>
@@ -1308,7 +1282,6 @@ requireAuth();
                     accountStatusBadge.textContent = resident.account_status;
                 }
                 
-                updateModalText(viewModal, '.resident-username', resident.username || 'N/A');
                 updateModalText(viewModal, '.resident-processed-by', resident.account_processed_by || 'N/A');
                 updateModalText(viewModal, '.resident-date-processed', resident.account_date_processed || 'N/A');
                 updateModalText(viewModal, '.resident-account-notes', resident.account_notes || 'N/A');
@@ -1399,8 +1372,6 @@ requireAuth();
         updateModalText(viewModal, '.request-civil-status', request.civil_status || 'N/A');
         updateModalText(viewModal, '.request-contact', request.contact_number);
         updateModalText(viewModal, '.request-email', request.email);
-        updateModalText(viewModal, '.request-username', request.username);
-        updateModalText(viewModal, '.request-address', request.address || 'N/A');
         updateModalImage(viewModal, '.request-photo', request.photo_path || 'img/default-profile.jpg');
         updateModalImage(viewModal, '.request-valid-id', request.valid_id_path || 'img/default-id.jpg');
         updateModalText(viewModal, '.request-date-requested', request.date_requested || 'N/A');
@@ -1722,7 +1693,7 @@ requireAuth();
                 if (createAccount) createAccount.value = this.checked ? 'true' : 'false';
                 
                 // Toggle required attribute on account fields
-                const username = getElement('#username');
+                const email = getElement('#email');
                 const password = getElement('#password');
                 if (username && password) {
                     username.required = this.checked;

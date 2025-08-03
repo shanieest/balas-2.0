@@ -211,12 +211,20 @@
                             <h5 class="form-section-title"><i class="fas fa-user"></i> Personal Information</h5>
                             <div class="form-row">
                                 <div class="form-group col-md-6">
-                                    <label for="firstName">First Name</label>
-                                    <input type="text" class="form-control" id="firstName" placeholder="First name" required>
+                                    <label for="firstName">First Name*</label>
+                                    <input type="text" class="form-control" id="firstName" name="firstName" placeholder="First name" required>
+                                </div>
+                                 <div class="form-group col-md-6">
+                                    <label for="middleName">Middle Name*</label>
+                                    <input type="text" class="form-control" id="middleName" name="middleName" placeholder="Middle name" required>
                                 </div>
                                 <div class="form-group col-md-6">
-                                    <label for="lastName">Last Name</label>
-                                    <input type="text" class="form-control" id="lastName" placeholder="Last name" required>
+                                    <label for="lastName">Last Name*</label>
+                                    <input type="text" class="form-control" id="lastName" name="lastName" placeholder="Last name" required>
+                                </div>
+                                 <div class="form-group col-md-6">
+                                    <label for="suffix">Suffix</label>
+                                    <input type="text" class="form-control" id="suffix" name="suffix" placeholder="Suffix">
                                 </div>
                             </div>
                             
@@ -227,12 +235,12 @@
                                         <div class="input-group-prepend">
                                             <span class="input-group-text"><i class="fas fa-calendar-alt"></i></span>
                                         </div>
-                                        <input type="text" class="form-control datepicker" id="birthdate" placeholder="MM/DD/YYYY" required>
+                                        <input type="text" class="form-control datepicker" id="birthdate" name="birthdate" placeholder="MM/DD/YYYY" required>
                                     </div>
                                 </div>
                                 <div class="form-group col-md-6">
                                     <label for="sex">Sex</label>
-                                    <select class="form-control" id="sex" required>
+                                    <select class="form-control" id="sex" name="sex" required>
                                         <option value="" selected disabled>Select sex</option>
                                         <option value="male">Male</option>
                                         <option value="female">Female</option>
@@ -250,7 +258,7 @@
                                     <div class="input-group-prepend">
                                         <span class="input-group-text"><i class="fas fa-envelope"></i></span>
                                     </div>
-                                    <input type="email" class="form-control" id="registerEmail" placeholder="Enter your email" required>
+                                    <input type="email" class="form-control" id="registerEmail" name="registerEmail" placeholder="Enter your email" required>
                                 </div>
                             </div>
                             <div class="form-group">
@@ -259,13 +267,24 @@
                                     <div class="input-group-prepend">
                                         <span class="input-group-text"><i class="fas fa-phone"></i></span>
                                     </div>
-                                    <input type="tel" class="form-control" id="phone" placeholder="Enter your phone number" required>
+                                    <input type="tel" class="form-control" id="phone" name="phone" placeholder="Enter your phone number" required>
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label for="address">Complete Address</label>
-                                <textarea class="form-control" id="address" rows="2" placeholder="House #, Street, Barangay, City" required></textarea>
+                                <label for="house_no">House No.*</label>
+                                <input type="text" class="form-control" id="house_no" name="house_no" placeholder="Enter House No." required>
                             </div>
+
+                            <div class="form-group">
+                                <label for="purok">Purok*</label>
+                                <input type="text" class="form-control" id="purok" name="purok" placeholder="Enter Purok" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="full_address">Full Address</label>
+                                <textarea class="form-control" id="full_address" name="full_address" rows="2" readonly></textarea>
+                            </div>
+
                         </div>
 
                         <div class="form-section">
@@ -276,7 +295,7 @@
                                     <div class="input-group-prepend">
                                         <span class="input-group-text"><i class="fas fa-lock"></i></span>
                                     </div>
-                                    <input type="password" class="form-control" id="registerPassword" placeholder="Create a password" required>
+                                    <input type="password" class="form-control" id="registerPassword" name="registerPassword" placeholder="Create a password" required>
                                 </div>
                                 <small class="form-text text-muted">Must be at least 8 characters long</small>
                             </div>
@@ -286,7 +305,7 @@
                                     <div class="input-group-prepend">
                                         <span class="input-group-text"><i class="fas fa-lock"></i></span>
                                     </div>
-                                    <input type="password" class="form-control" id="confirmPassword" placeholder="Confirm your password" required>
+                                    <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" placeholder="Confirm your password" required>
                                 </div>
                             </div>
                         </div>
@@ -296,29 +315,31 @@
                             <div class="alert alert-primary">
                                 <i class="fas fa-info-circle"></i> Please upload a clear photo of your valid government-issued ID.
                             </div>
-                            <div class="form-group">
+                           <div class="form-group">
                                 <label for="idType">ID Type</label>
-                                <select class="form-control" id="idType" required>
+                                <select class="form-control" id="idType" name="idType" required>
                                     <option value="" selected disabled>Select ID type</option>
-                                    <option value="passport">Passport</option>
-                                    <option value="driver">Driver's License</option>
-                                    <option value="umid">UMID</option>
-                                    <option value="philhealth">PhilHealth ID</option>
-                                    <option value="sss">SSS ID</option>
-                                    <option value="voter">Voter's ID</option>
-                                    <option value="postal">Postal ID</option>
-                                    <option value="brgy">Barangay ID</option>
-                                    <option value="other">Other Government ID</option>
+                                    <option value="prc">PRC ID</option>
+                                    <option value="driver">Driver's License ID</option>
+                                    <option value="passport">Passport ID</option>
+                                    <option value="company">Company ID</option>
+                                    <option value="other">Others</option>
                                 </select>
                             </div>
+
+                            <div class="form-group" id="otherIdTypeGroup" style="display: none;">
+                                <label for="otherIdType">Specify Other ID Type</label>
+                                <input type="text" class="form-control" id="otherIdType" name="otherIdType" placeholder="Enter ID Type">
+                            </div>
+
                             <div class="form-group">
                                 <label for="idNumber">ID Number</label>
-                                <input type="text" class="form-control" id="idNumber" placeholder="Enter ID number" required>
+                                <input type="text" class="form-control" id="idNumber" name="idNumber" placeholder="Enter ID number" required>
                             </div>
                             <div class="form-group">
-                                <label for="idUpload">Upload ID (Front)</label>
+                                <label for="idUpload">Upload ID</label>
                                 <div class="custom-file">
-                                    <input type="file" class="custom-file-input" id="idUpload" accept="image/*" required>
+                                    <input type="file" class="custom-file-input" id="idUpload" name="idUpload" accept="image/*,.pdf" required>
                                     <label class="custom-file-label" for="idUpload">Choose file</label>
                                 </div>
                                 <img id="idPreview" class="id-preview" alt="ID Preview">
@@ -339,7 +360,7 @@
 
             <div class="auth-footer">
                 <p>Need help? <a href="#">Contact Barangay Support</a> or visit our office</p>
-                <p class="text-muted small">© 2023 Barangay Balas Portal. All rights reserved.</p>
+      &copy; <?php echo date("Y"); ?> Barangay Balas, Mexico, Pampanga. All Rights Reserved. 
             </div>
         </div>
     </div>
@@ -374,12 +395,45 @@
                 }
             });
 
-            // Form submission handling
-            $('form').submit(function(e){
-                e.preventDefault();
-                // Add your form submission logic here
-                alert('Form submitted successfully!');
+            // Update custom file label
+            $('.custom-file-input').on('change', function() {
+                let fileName = $(this).val().split('\\').pop();
+                $(this).next('.custom-file-label').addClass("selected").html(fileName);
             });
+        });
+
+        const houseNoInput = document.getElementById('house_no');
+        const purokInput = document.getElementById('purok');
+        const fullAddressField = document.getElementById('full_address');
+
+        function updateFullAddress() {
+            const houseNo = houseNoInput.value.trim();
+            const purok = purokInput.value.trim();
+
+            let addressParts = [];
+
+            if (houseNo) addressParts.push(houseNo);
+            if (purok) addressParts.push("Purok " + purok);
+
+            addressParts.push("Balas, Mexico, Pampanga, Philippines");
+
+            fullAddressField.value = addressParts.join(', ');
+        }
+
+        houseNoInput.addEventListener('input', updateFullAddress);
+        purokInput.addEventListener('input', updateFullAddress);
+
+        const idTypeSelect = document.getElementById('idType');
+        const otherIdTypeGroup = document.getElementById('otherIdTypeGroup');
+
+        idTypeSelect.addEventListener('change', function() {
+            if (this.value === 'other') {
+                otherIdTypeGroup.style.display = 'block';
+                document.getElementById('otherIdType').setAttribute('required', 'required');
+            } else {
+                otherIdTypeGroup.style.display = 'none';
+                document.getElementById('otherIdType').removeAttribute('required');
+            }
         });
     </script>
 </body>

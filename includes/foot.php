@@ -9,6 +9,6 @@
         <div class="container text-center">
         <p class="mb-0">Barangay Balas, Mexico, Pampanga</p>
         <p class="mb-0">All Rights Reserved &copy; 2023</p>
-        <p class="mb-0">Developed by: Your Name</p> 
+        <p class="mb-0">Developed by: Jarshane</p> 
         </div>-->
 </footer>

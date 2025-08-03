@@ -58,115 +58,85 @@
 </head>
 <body>
   <!-- Top Blue Navbar -->
-  <nav class="navbar top-navbar py-1">
-    <div class="container">
-      <img src="\balas 2.0\assets/img/pampangalogo.png" alt="Pampanga Seal" width="80" height="80" class="d-inline-block align-top mr-2">
-      <span class="navbar-brand mb-0 font-weight-bold">Province of Pampanga</span>
+  <nav class="navbar top-navbar py">
+  <div class="container d-flex justify-content-between align-items-center">
+    <span class="navbar-brand mb-0 font-weight-bold"></span>
+    <div class="d-flex align-items-center">
+      <span class="mr-2 navbar-brand mb">Don't have an account?</span>
+      <a class="btn btn-primary btn-sm" href="\balas 2.0\signup.php">Sign up</a>
     </div>
-  </nav>
+  </div>
+</nav>
+
 
   <!-- Main White Navbar -->
   <nav class="navbar navbar-expand-lg main-navbar sticky-top py-2">
-    <div class="container">
-      <a class="navbar-brand d-flex align-items-center" href="/balas 2.0/index.php">
-        <img src="\balas 2.0\assets/img/balas-logo.png" alt="Logo" width="80" height="80" class="d-inline-block align-top mr-2">
-        <span class="font-weight-bold">Barangay Balas<br><small>Mexico, Pampanga</small></span>
-      </a>
-      
-      <button class="navbar-toggler" type="button" 
-              data-toggle="collapse" data-target="#mainNavbar"
-              aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-      </button>
+  <div class="container d-flex justify-content-between align-items-center">
 
-      <div class="collapse navbar-collapse" id="mainNavbar">
-        <ul class="navbar-nav ml-auto">
-          <li class="nav-item">
-            <a class="nav-link" href="/balas 2.0/index.php">Home</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="\balas 2.0\signup.php">Portal</a>
-          </li>
+    <!-- Left Side: Barangay Balas Logo + Text -->
+    <a class="navbar-brand d-flex align-items-center" href="/balas 2.0/index.php">
+      <img src="\balas 2.0\assets\img\pampangalogo.png" alt="Pampanga Logo" width="80" height="80" class="d-inline-block align-top mr-2">
+      <img src="\balas 2.0\assets\img\Mexico_Pampanga.png" alt="Mexico Logo" width="80" height="80" class="d-inline-block align-top mr-2">
+      <img src="\balas 2.0\assets\img\balas-logo.png" alt="Balas Logo" width="80" height="80" class="d-inline-block align-top mr-2">
+      <span class="font-weight-bold">Barangay Balas<br><small>Mexico, Pampanga</small></span>
+    </a>
 
-          <!-- Services Dropdown -->
-          <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="servicesDropdown" 
-               role="button" data-toggle="dropdown" aria-expanded="false">
-              Services
-            </a>
-            <ul class="dropdown-menu" aria-labelledby="servicesDropdown">
-              <!-- Certifications Submenu -->
-              <li class="dropdown-submenu">
-                <a class="dropdown-item dropdown-toggle" href="#" role="button">
-                  Barangay Certifications
-                </a>
-                <ul class="dropdown-menu">
-                  <li><a class="dropdown-item" href="\balas 2.0\services\barangay-certifications\residency.php">Certificate of Residency</a></li>
-                  <li><a class="dropdown-item" href="\balas 2.0\services\barangay-certifications\indigency.php">Certificate of Indigency</a></li>
-                </ul>
-              </li>
-              
-              <!-- Clearance Submenu -->
-              <li class="dropdown-submenu">
-                <a class="dropdown-item dropdown-toggle" href="#" role="button">
-                  Barangay Clearance
-                </a>
-                <ul class="dropdown-menu">
-                  <li><a class="dropdown-item" href="\barangay-balas\services\barangay-clearance\businessClearance.php">Business Clearance</a></li>
-                  <li><a class="dropdown-item" href="\barangay-balas\services\barangay-clearance\employmentClearance.php">Employment Clearance</a></li>
-                </ul>
-              </li>
+    <!-- Navbar Toggler (Mobile View) -->
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#mainNavbar"
+      aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
 
-              <!-- Reservations Submenu -->
-              <li class="dropdown-submenu">
-                <a class="dropdown-item dropdown-toggle" href="#" role="button">
-                  Other Services
-                </a>
-                <ul class="dropdown-menu">
-                  <li><a class="dropdown-item" href="\barangay-balas\services\other-services\reservation.php">Reservation Services</a></li>
-                </ul>
-              </li>
-            </ul>
-          </li>
-
-          <!-- Barangay Dropdown -->
-          <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="barangayDropdown" 
-               role="button" data-toggle="dropdown" aria-expanded="false">
-              Barangay
-            </a>
-            <ul class="dropdown-menu" aria-labelledby="barangayDropdown">
-              <li><a class="dropdown-item" href="#">Barangay Captain</a></li>
-              <li><a class="dropdown-item" href="#">Barangay Councils</a></li>
-              <li><a class="dropdown-item" href="#">Barangay Committees</a></li>
-              <li><a class="dropdown-item" href="#">Sangguniang Kabataan</a></li>
-              <li><a class="dropdown-item" href="#">Barangay Org Chart</a></li>
-            </ul>
-          </li>
-
-          <!-- Publications Dropdown -->
-          <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" id="publicationsDropdown" 
-               role="button" data-toggle="dropdown" aria-expanded="false">
-              Publications
-            </a>
-            <ul class="dropdown-menu" aria-labelledby="publicationsDropdown">
-              <li><a class="dropdown-item" href="#">Barangay Ordinance</a></li>
-              <li><a class="dropdown-item" href="#">Barangay Order</a></li>
-              <li><a class="dropdown-item" href="#">Barangay Resolution</a></li>
-            </ul>
-          </li>
-
-          <li class="nav-item">
-            <a class="nav-link" href="#jobs">Jobs</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/barangay-balas/announcements.php">News & Events</a>
-          </li>
-        </ul>
-      </div>
+    <!-- Center Menu Items -->
+    <div class="collapse navbar-collapse justify-content-center" id="mainNavbar">
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link" href="/balas 2.0/index.php">Home</a>
+        </li>
+        <!-- Services Dropdown -->
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" id="servicesDropdown" role="button" data-toggle="dropdown" aria-expanded="false">
+            Services
+          </a>
+          <ul class="dropdown-menu" aria-labelledby="servicesDropdown">
+            <li class="dropdown-submenu">
+              <a class="dropdown-item dropdown-toggle" href="#" role="button">Barangay Certifications</a>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="\balas 2.0\services\barangay-certifications\residency.php">Certificate of Residency</a></li>
+                <li><a class="dropdown-item" href="\balas 2.0\services\barangay-certifications\indigency.php">Certificate of Indigency</a></li>
+              </ul>
+            </li>
+            <li class="dropdown-submenu">
+              <a class="dropdown-item dropdown-toggle" href="#" role="button">Barangay Clearance</a>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="\barangay-balas\services\barangay-clearance\businessClearance.php">Business Clearance</a></li>
+                <li><a class="dropdown-item" href="\barangay-balas\services\barangay-clearance\employmentClearance.php">Employment Clearance</a></li>
+              </ul>
+            </li>
+            <li class="dropdown-submenu">
+              <a class="dropdown-item dropdown-toggle" href="#" role="button">Other Services</a>
+              <ul class="dropdown-menu">
+                <li><a class="dropdown-item" href="\barangay-balas\services\other-services\reservation.php">Reservation Services</a></li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/barangay-balas/officials.php">Barangay Officials</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#jobs">Jobs</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/barangay-balas/announcements.php">News & Events</a>
+        </li>
+      </ul>
     </div>
+
+  </div>
   </nav>
+
+
   <!-- jQuery first, then Popper.js, then Bootstrap JS -->
   <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>

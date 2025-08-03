@@ -9,7 +9,8 @@
 /* Base Styles */
 body {
     background-color: #f8f9fa;
-    padding-top: 56px;
+    padding-top: 50px;
+    overflow-x: hidden; 
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
@@ -20,7 +21,7 @@ body {
     top: 0;
     right: 0;
     left: 0;
-    z-index: 1030;
+    z-index: 1040;
     height: 56px;
     box-shadow: 0 0.15rem 1rem 0 rgba(58, 59, 69, 0.15);
 }
@@ -66,14 +67,15 @@ body {
 /* Sidebar Styles */
 .sb-sidenav {
     width: 225px;
-    height: 100vh;
-    z-index: 1038;
+    height: 100vh; /* Changed from 150vh to 100vh */
+    z-index: 1039;
     position: fixed;
-    top: 56px;
+    top: 0;
     left: 0;
-    transition: transform 0.15s ease-in-out;
     box-shadow: 0 0.15rem 1rem 0 rgba(58, 59, 69, 0.1);
     overflow-y: auto;
+    padding-top: 56px;
+    background: #fff; /* Added background to ensure content doesn't show through */
 }
 
 .sb-sidenav-dark {
