@@ -1,7 +1,6 @@
 <?php
 require_once 'includes/db.php';
 
-
 $firstName = trim($_POST['firstName']);
 $middleName = trim($_POST['middleName']);
 $lastName = trim($_POST['lastName']);
@@ -17,6 +16,11 @@ $password = $_POST['registerPassword'];
 $confirmPassword = $_POST['confirmPassword'];
 $idType = ($_POST['idType'] == 'other') ? trim($_POST['otherIdType']) : $_POST['idType'];
 $idNumber = trim($_POST['idNumber']);
+
+// Calculate age from birthdate
+$today = new DateTime();
+$birthdateObj = new DateTime($birthdate);
+$age = $today->diff($birthdateObj)->y;
 
 // Validate Password
 if ($password !== $confirmPassword) {
@@ -78,7 +82,7 @@ $stmt->close();
 
 // Insert into Database
 $sql = "INSERT INTO resident_accounts 
-        (first_name, middle_name, last_name, suffix, birthdate, sex, email, phone, 
+        (first_name, middle_name, last_name, suffix, birthdate, age, sex, email, phone, 
          house_no, purok, full_address, password, id_type, id_number, id_file) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
@@ -88,12 +92,13 @@ if (!$stmt) {
 }
 
 $bindResult = $stmt->bind_param(
-    "sssssssssssssss",
+    "sssssisssssssss",
     $firstName,
     $middleName,
     $lastName,
     $suffix,
     $birthdate,
+    $age,
     $sex,
     $email,
     $phone,

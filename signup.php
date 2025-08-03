@@ -239,6 +239,10 @@
                                     </div>
                                 </div>
                                 <div class="form-group col-md-6">
+                                    <label for="age">Age</label>
+                                    <input type="text" class="form-control" id="age" name="age" placeholder="Age" readonly>
+                                </div>
+                                <div class="form-group col-md-6">
                                     <label for="sex">Sex</label>
                                     <select class="form-control" id="sex" name="sex" required>
                                         <option value="" selected disabled>Select sex</option>
@@ -380,6 +384,18 @@
                 autoclose: true,
                 todayHighlight: true,
                 endDate: '0d'
+            });
+
+            // Calculate age when birthdate changes
+            $('#birthdate').on('change', function() {
+                var birthdate = new Date($(this).val());
+                var today = new Date();
+                var age = today.getFullYear() - birthdate.getFullYear();
+                var m = today.getMonth() - birthdate.getMonth();
+                if (m < 0 || (m === 0 && today.getDate() < birthdate.getDate())) {
+                    age--;
+                }
+                $('#age').val(age);
             });
 
             // Show preview of uploaded ID
