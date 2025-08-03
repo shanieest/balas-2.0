@@ -1,254 +1,200 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/db.php';
-requireAuth();
-
-// Only allow AJAX requests for backend files
-if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || 
-    strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) !== 'xmlhttprequest') {
-    header('HTTP/1.0 403 Forbidden');
-    die('Direct access not allowed');
-}
 
 header('Content-Type: application/json');
 
-// Include PHPWord library for document generation
-require_once 'vendor/autoload.php';
-use PhpOffice\PhpWord\PhpWord;
-use PhpOffice\PhpWord\IOFactory;
-
-$action = $_GET['action'] ?? '';
 $response = ['success' => false, 'message' => ''];
 
 try {
+    $action = $_GET['action'] ?? '';
+    $user_id = getUserId();
+
     switch ($action) {
-        case 'get_requests':
-            $status = $_GET['status'] ?? null;
-            $type = $_GET['type'] ?? null;
-            
-            $query = "SELECT r.*, res.first_name, res.last_name, res.address, res.contact_number, 
-                             res.email, u.username as processed_by_name
-                      FROM document_requests r
-                      JOIN residents res ON r.resident_id = res.id
-                      LEFT JOIN admin_users u ON r.processed_by = u.id";
-            
-            $conditions = [];
-            $params = [];
-            $types = '';
-            
-            if ($status) {
-                $conditions[] = "r.status = ?";
-                $params[] = $status;
-                $types .= 's';
-            }
-            
-            if ($type) {
-                $conditions[] = "r.document_type = ?";
-                $params[] = $type;
-                $types .= 's';
-            }
-            
-            if (!empty($conditions)) {
-                $query .= " WHERE " . implode(" AND ", $conditions);
-            }
-            
-            $query .= " ORDER BY r.date_requested DESC";
-            
-            $stmt = $conn->prepare($query);
-            
-            if (!empty($params)) {
-                $stmt->bind_param($types, ...$params);
-            }
-            
-            $stmt->execute();
-            $result = $stmt->get_result();
-            
-            $response['data'] = $result->fetch_all(MYSQLI_ASSOC);
-            $response['success'] = true;
+        case 'list':
+            handleListRequests();
             break;
-            
-        case 'get_request':
-            $id = $_GET['id'];
-            $stmt = $conn->prepare("SELECT r.*, res.first_name, res.middle_name, res.last_name, 
-                                   res.address, res.contact_number, res.email, res.birthdate,
-                                   u.username as processed_by_name
-                                   FROM document_requests r
-                                   JOIN residents res ON r.resident_id = res.id
-                                   LEFT JOIN admin_users u ON r.processed_by = u.id
-                                   WHERE r.id = ?");
-            $stmt->bind_param("i", $id);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            
-            if ($result->num_rows > 0) {
-                $response['data'] = $result->fetch_assoc();
-                $response['success'] = true;
-            } else {
-                $response['message'] = 'Request not found';
-            }
+        case 'approve':
+            handleApproveRequest($user_id);
             break;
-            
-        case 'process_request':
-            $id = $_POST['id'];
-            $status = $_POST['status'];
-            $notes = $conn->real_escape_string($_POST['notes'] ?? '');
-            
-            $stmt = $conn->prepare("UPDATE document_requests 
-                                   SET status = ?, processed_by = ?, date_processed = NOW(), notes = ?
-                                   WHERE id = ?");
-            $stmt->bind_param("sisi", $status, getUserId(), $notes, $id);
-            
-            if ($stmt->execute()) {
-                // Log activity
-                $action = $status == 'Approved' ? 'Approved' : 'Disapproved';
-                logActivity($conn, getUserId(), "$action document request ID $id");
-                
-                $response['success'] = true;
-                $response['message'] = "Request $status successfully";
-                
-                // If approved, generate the document
-                if ($status == 'Approved') {
-                    $response['document_url'] = generateDocument($conn, $id);
-                }
-            } else {
-                throw new Exception("Failed to process request: " . $stmt->error);
-            }
+        case 'reject':
+            handleRejectRequest($user_id);
             break;
-            
         case 'export':
-            $type = $_GET['type'] ?? 'all';
-            
-            $query = "SELECT r.id, r.document_type, r.status, r.date_requested, r.date_processed,
-                             CONCAT(res.first_name, ' ', res.last_name) as resident_name,
-                             res.address, res.contact_number, res.email,
-                             u.username as processed_by
-                      FROM document_requests r
-                      JOIN residents res ON r.resident_id = res.id
-                      LEFT JOIN admin_users u ON r.processed_by = u.id";
-            
-            if ($type != 'all') {
-                $query .= " WHERE r.document_type = '$type'";
-            }
-            
-            $query .= " ORDER BY r.date_requested DESC";
-            
-            $result = $conn->query($query);
-            $data = $result->fetch_all(MYSQLI_ASSOC);
-            
-            header('Content-Type: text/csv');
-            header('Content-Disposition: attachment; filename="document_requests_' . $type . '_' . date('Y-m-d') . '.csv"');
-            
-            $output = fopen('php://output', 'w');
-            
-            // Header row
-            fputcsv($output, array_keys($data[0]));
-            
-            // Data rows
-            foreach ($data as $row) {
-                fputcsv($output, $row);
-            }
-            
-            fclose($output);
-            exit();
-            
+            handleExportRequests();
+            break;
         default:
             $response['message'] = 'Invalid action';
+            echo json_encode($response);
+            exit();
     }
 } catch (Exception $e) {
     $response['message'] = $e->getMessage();
+    echo json_encode($response);
+    exit();
 }
 
-echo json_encode($response);
-
-// Function to generate document (Word format)
-function generateDocument($conn, $request_id) {
-    $stmt = $conn->prepare("SELECT r.*, res.*, u.username as processed_by_name
-                           FROM document_requests r
-                           JOIN residents res ON r.resident_id = res.id
-                           LEFT JOIN admin_users u ON r.processed_by = u.id
-                           WHERE r.id = ?");
-    $stmt->bind_param("i", $request_id);
+function handleListRequests() {
+    global $conn, $response;
+    
+    $status = $_GET['status'] ?? 'Pending';
+    $id = $_GET['id'] ?? null;
+    
+    $query = "SELECT dr.*, 
+              CONCAT(r.first_name, ' ', r.last_name) as resident_name,
+              r.contact_number, r.email, r.address,
+              CONCAT(a.first_name, ' ', a.last_name) as processed_by
+              FROM document_requests dr
+              JOIN residents r ON dr.resident_id = r.id
+              LEFT JOIN admin_users a ON dr.processed_by = a.id";
+    
+    $where = [];
+    $params = [];
+    $types = '';
+    
+    if ($id) {
+        $where[] = "dr.id = ?";
+        $params[] = $id;
+        $types .= 'i';
+    } else {
+        $where[] = "dr.status = ?";
+        $params[] = $status;
+        $types .= 's';
+    }
+    
+    if (!empty($where)) {
+        $query .= " WHERE " . implode(" AND ", $where);
+    }
+    
+    $query .= " ORDER BY dr.date_requested DESC";
+    
+    $stmt = $conn->prepare($query);
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
     $stmt->execute();
     $result = $stmt->get_result();
-    $request = $result->fetch_assoc();
     
-    $phpWord = new PhpWord();
-    $section = $phpWord->addSection();
-    
-    // Add logo
-    $section->addImage('assets/img/balas-logo.png', [
-        'width' => 100,
-        'height' => 100,
-        'alignment' => 'center'
-    ]);
-    
-    // Document title
-    $section->addText(strtoupper($request['document_type']), [
-        'name' => 'Arial',
-        'size' => 16,
-        'bold' => true
-    ], ['alignment' => 'center']);
-    
-    $section->addTextBreak(2);
-    
-    // Document content based on type
-    switch ($request['document_type']) {
-        case 'Barangay Clearance':
-            $content = "TO WHOM IT MAY CONCERN:\n\n";
-            $content .= "This is to certify that {$request['first_name']} {$request['middle_name']} {$request['last_name']}, ";
-            $content .= "of legal age, {$request['civil_status']}, Filipino, and a resident of {$request['address']}, ";
-            $content .= "Barangay Balas, is known to be of good moral character and has no derogatory record in this barangay.\n\n";
-            $content .= "This certification is issued upon the request of {$request['first_name']} {$request['last_name']} ";
-            $content .= "for {$request['purpose']}.\n\n";
-            $content .= "Issued this " . date('jS \d\a\y \o\f F, Y') . " at Barangay Balas.\n\n";
-            $content .= "Certified by:\n\n\n";
-            $content .= "___________________________\n";
-            $content .= "Barangay Captain\n";
-            $content .= "Barangay Balas";
-            break;
-            
-        case 'Certificate of Residency':
-            $content = "CERTIFICATE OF RESIDENCY\n\n";
-            $content .= "TO WHOM IT MAY CONCERN:\n\n";
-            $content .= "This is to certify that {$request['first_name']} {$request['middle_name']} {$request['last_name']}, ";
-            $content .= "of legal age, is a bona fide resident of {$request['address']}, Barangay Balas.\n\n";
-            $content .= "This certification is issued upon the request of the above-named person ";
-            $content .= "for {$request['purpose']}.\n\n";
-            $content .= "Issued this " . date('jS \d\a\y \o\f F, Y') . " at Barangay Balas.\n\n";
-            $content .= "Certified by:\n\n\n";
-            $content .= "___________________________\n";
-            $content .= "Barangay Captain\n";
-            $content .= "Barangay Balas";
-            break;
-            
-        // Add other document types as needed
-            
-        default:
-            $content = "DOCUMENT\n\n";
-            $content .= "This is a certification issued by Barangay Balas.\n\n";
-            $content .= "Issued this " . date('jS \d\a\y \o\f F, Y') . " at Barangay Balas.\n\n";
-            $content .= "Certified by:\n\n\n";
-            $content .= "___________________________\n";
-            $content .= "Barangay Captain\n";
-            $content .= "Barangay Balas";
+    $requests = [];
+    while ($row = $result->fetch_assoc()) {
+        $requests[] = $row;
     }
     
-    $section->addText($content, [
-        'name' => 'Arial',
-        'size' => 12
-    ]);
+    // Get counts for each status
+    $countQuery = "SELECT 
+                  COUNT(*) as total,
+                  SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending,
+                  SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) as approved,
+                  SUM(CASE WHEN status = 'Disapproved' THEN 1 ELSE 0 END) as disapproved
+                  FROM document_requests";
     
-    // Save document
-    $filename = "document_{$request['document_type']}_{$request_id}.docx";
-    $filepath = "assets/documents/$filename";
+    $countResult = $conn->query($countQuery)->fetch_assoc();
     
-    if (!is_dir('assets/documents')) {
-        mkdir('assets/documents', 0777, true);
+    $response['success'] = true;
+    $response['data'] = $requests;
+    $response['counts'] = $countResult;
+    echo json_encode($response);
+}
+
+function handleApproveRequest($user_id) {
+    global $conn, $response;
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (empty($data['id'])) {
+        throw new Exception("Request ID is required");
     }
     
-    $objWriter = IOFactory::createWriter($phpWord, 'Word2007');
-    $objWriter->save($filepath);
+    $note = $data['note'] ?? '';
     
-    return $filepath;
+    $stmt = $conn->prepare("UPDATE document_requests SET 
+        status = 'Approved', processed_by = ?, date_processed = NOW(), notes = ?
+        WHERE id = ?");
+    $stmt->bind_param("isi", $user_id, $note, $data['id']);
+    
+    if (!$stmt->execute()) {
+        throw new Exception("Failed to approve request: " . $stmt->error);
+    }
+    
+    $response['success'] = true;
+    $response['message'] = 'Request approved successfully';
+    echo json_encode($response);
+}
+
+function handleRejectRequest($user_id) {
+    global $conn, $response;
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (empty($data['id']) || empty($data['reason'])) {
+        throw new Exception("Request ID and reason are required");
+    }
+    
+    $stmt = $conn->prepare("UPDATE document_requests SET 
+        status = 'Disapproved', processed_by = ?, date_processed = NOW(), notes = ?
+        WHERE id = ?");
+    $stmt->bind_param("isi", $user_id, $data['reason'], $data['id']);
+    
+    if (!$stmt->execute()) {
+        throw new Exception("Failed to reject request: " . $stmt->error);
+    }
+    
+    $response['success'] = true;
+    $response['message'] = 'Request rejected successfully';
+    echo json_encode($response);
+}
+
+function handleExportRequests() {
+    global $conn;
+    
+    $type = $_GET['type'] ?? 'all';
+    
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="document_requests_' . date('Y-m-d') . '.csv"');
+    
+    $output = fopen('php://output', 'w');
+    
+    // Header row
+    fputcsv($output, [
+        'Request ID', 'Resident Name', 'Document Type', 'Purpose', 'Status',
+        'Date Requested', 'Date Processed', 'Processed By', 'Notes'
+    ]);
+    
+    // Data rows
+    $query = "SELECT dr.request_number, 
+              CONCAT(r.first_name, ' ', r.last_name) as resident_name,
+              dr.document_type, dr.purpose, dr.status, dr.date_requested,
+              dr.date_processed, CONCAT(a.first_name, ' ', a.last_name) as processed_by,
+              dr.notes
+              FROM document_requests dr
+              JOIN residents r ON dr.resident_id = r.id
+              LEFT JOIN admin_users a ON dr.processed_by = a.id";
+    
+    if ($type !== 'all') {
+        $query .= " WHERE dr.document_type = ?";
+        $stmt = $conn->prepare($query);
+        $stmt->bind_param("s", $type);
+        $stmt->execute();
+        $result = $stmt->get_result();
+    } else {
+        $result = $conn->query($query);
+    }
+    
+    while ($row = $result->fetch_assoc()) {
+        fputcsv($output, [
+            $row['request_number'],
+            $row['resident_name'],
+            $row['document_type'],
+            $row['purpose'],
+            $row['status'],
+            $row['date_requested'],
+            $row['date_processed'] ?? '',
+            $row['processed_by'] ?? '',
+            $row['notes'] ?? ''
+        ]);
+    }
+    
+    fclose($output);
+    exit();
 }
 ?>

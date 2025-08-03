@@ -1,324 +1,438 @@
 <?php
-ob_start();
-header('Content-Type: application/json');
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/db.php';
 
-ini_set('display_errors', 0);
-error_reporting(0);
+header('Content-Type: application/json');
 
 $response = ['success' => false, 'message' => ''];
 
 try {
-    session_start();
-    if (!isset($_SESSION['user_id'])) {
-        throw new Exception('Unauthorized access', 401);
-    }
-
-    if ($conn->connect_error) {
-        throw new Exception('Database connection failed', 500);
-    }
-
     $action = $_GET['action'] ?? '';
-    if (empty($action)) {
-        throw new Exception('No action specified', 400);
-    }
+    $user_id = getUserId();
 
     switch ($action) {
         case 'list':
-            $id = $_GET['id'] ?? null;
-            $page = max(1, intval($_GET['page'] ?? 1));
-            $perPage = max(1, intval($_GET['per_page'] ?? 10));
-            $search = trim($_GET['search'] ?? '');
-
-            if ($id) {
-                $stmt = $conn->prepare("SELECT r.*, a.username, a.status as account_status, 
-                                      a.id_file as valid_id_path, a.registration_date as date_requested
-                                      FROM resident_accounts r
-                                      LEFT JOIN admin_users u ON a.processed_by = u.id
-                                      WHERE r.id = ?");
-                $stmt->bind_param("i", $id);
-                $stmt->execute();
-                $result = $stmt->get_result();
-
-                if ($result->num_rows > 0) {
-                    $response['data'] = $result->fetch_assoc();
-                    $response['success'] = true;
-                } else {
-                    throw new Exception('Resident not found', 404);
-                }
-            } else {
-                $offset = ($page - 1) * $perPage;
-                $searchTerm = "%$search%";
-                
-                $countStmt = $conn->prepare("SELECT COUNT(*) as total FROM resident_accounts r
-                                           WHERE (r.first_name LIKE ? OR r.last_name LIKE ? OR r.phone LIKE ?)");
-                $countStmt->bind_param("sss", $searchTerm, $searchTerm, $searchTerm);
-                $countStmt->execute();
-                $total = $countStmt->get_result()->fetch_assoc()['total'];
-                
-                $stmt = $conn->prepare("SELECT r.* 
-                                      FROM resident_accounts r
-                                      WHERE (r.first_name LIKE ? OR r.last_name LIKE ? OR r.phone LIKE ?)
-                                      ORDER BY r.last_name, r.first_name
-                                      LIMIT ? OFFSET ?");
-                $stmt->bind_param("sssii", $searchTerm, $searchTerm, $searchTerm, $perPage, $offset);
-                $stmt->execute();
-                $result = $stmt->get_result();
-                
-                $response['data'] = $result->fetch_all(MYSQLI_ASSOC);
-                $response['pagination'] = [
-                    'total' => $total,
-                    'page' => $page,
-                    'per_page' => $perPage,
-                    'total_pages' => ceil($total / $perPage)
-                ];
-                $response['success'] = true;
-            }
+            handleListResidents();
             break;
-
         case 'account_requests':
-            $id = $_GET['id'] ?? null;
-            $status = in_array($_GET['status'] ?? '', ['Pending', 'Approved', 'Disapproved']) ? $_GET['status'] : 'all';
-            $page = max(1, intval($_GET['page'] ?? 1));
-            $perPage = max(1, intval($_GET['per_page'] ?? 10));
-
-            if ($id) {
-                $stmt = $conn->prepare("SELECT r.* 
-                                      FROM resident_accounts r
-                                      WHERE r.id = ?");
-                $stmt->bind_param("i", $id);
-                $stmt->execute();
-                $result = $stmt->get_result();
-
-                if ($result->num_rows > 0) {
-                    $response['data'] = $result->fetch_assoc();
-                    $response['success'] = true;
-                } else {
-                    throw new Exception('Request not found', 404);
-                }
-            } else {
-                $offset = ($page - 1) * $perPage;
-                $statusFilter = $status === 'all' ? '%' : $status;
-                
-                $countStmt = $conn->prepare("SELECT COUNT(*) as total FROM resident_accounts r
-                                           WHERE r.status LIKE ?");
-                $countStmt->bind_param("s", $statusFilter);
-                $countStmt->execute();
-                $total = $countStmt->get_result()->fetch_assoc()['total'];
-                
-                $stmt = $conn->prepare("SELECT r.id, r.first_name, r.last_name, r.email, r.phone as contact_number,
-                                      r.status as account_status, r.registration_date as date_requested
-                                      FROM resident_accounts r
-                                      WHERE r.status LIKE ?
-                                      ORDER BY r.status, r.registration_date DESC
-                                      LIMIT ? OFFSET ?");
-                $stmt->bind_param("sii", $statusFilter, $perPage, $offset);
-                $stmt->execute();
-                $result = $stmt->get_result();
-                
-                $response['data'] = $result->fetch_all(MYSQLI_ASSOC);
-                $response['pagination'] = [
-                    'total' => $total,
-                    'page' => $page,
-                    'per_page' => $perPage,
-                    'total_pages' => ceil($total / $perPage)
-                ];
-                $response['success'] = true;
-            }
+            handleAccountRequests();
             break;
-
         case 'add':
-            // Required fields validation
-            $required = ['firstName', 'lastName', 'sex', 'birthdate', 'houseNumber', 'purok', 'contactNumber'];
-            foreach ($required as $field) {
-                if (empty($_POST[$field])) {
-                    throw new Exception("Missing required field: $field", 400);
-                }
-            }
-
-            // Sanitize inputs
-            $firstName = $conn->real_escape_string(trim($_POST['firstName']));
-            $middleName = isset($_POST['middleName']) ? $conn->real_escape_string(trim($_POST['middleName'])) : '';
-            $lastName = $conn->real_escape_string(trim($_POST['lastName']));
-            $suffix = isset($_POST['suffix']) ? $conn->real_escape_string(trim($_POST['suffix'])) : '';
-            $sex = in_array($_POST['sex'], ['male', 'female']) ? $_POST['sex'] : '';
-            $birthdate = $_POST['birthdate'];
-            $houseNumber = $conn->real_escape_string(trim($_POST['houseNumber']));
-            $purok = $conn->real_escape_string(trim($_POST['purok']));
-            $address = "House $houseNumber, Purok $purok, Balas, Mexico, Pampanga, Philippines";
-            $contactNumber = preg_replace('/[^0-9]/', '', $_POST['contactNumber']);
-            $email = isset($_POST['email']) ? filter_var($_POST['email'], FILTER_VALIDATE_EMAIL) : '';
-
-            // Validate fields
-            if (empty($sex)) throw new Exception('Invalid sex value', 400);
-            if (!DateTime::createFromFormat('Y-m-d', $birthdate)) throw new Exception('Invalid birthdate format', 400);
-            if (strlen($contactNumber) < 10 || strlen($contactNumber) > 15) throw new Exception('Contact number must be 10-15 digits', 400);
-
-            // Calculate age
-            $today = new DateTime();
-            $birthDate = new DateTime($birthdate);
-            if ($birthDate > $today) throw new Exception('Birthdate cannot be in the future', 400);
-            $age = $today->diff($birthDate)->y;
-
-            // Insert resident
-            $stmt = $conn->prepare("INSERT INTO resident_accounts 
-                (first_name, middle_name, last_name, suffix, sex, birthdate, age, 
-                email, phone, house_no, purok, full_address, registration_date, status) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 'Pending')");
-            $stmt->bind_param("ssssssisssss", 
-                $firstName, $middleName, $lastName, $suffix, $sex, $birthdate, $age,
-                $email, $contactNumber, $houseNumber, $purok, $address);
-
-            if ($stmt->execute()) {
-                $residentId = $stmt->insert_id;
-
-                // Handle account creation if requested
-                if (isset($_POST['createAccount'])) {
-                    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-                    
-                    // In your case, the account is part of the same table
-                    $updateStmt = $conn->prepare("UPDATE resident_accounts SET 
-                        password = ?, status = 'Approved' WHERE id = ?");
-                    $updateStmt->bind_param("si", $password, $residentId);
-                    
-                    if (!$updateStmt->execute()) {
-                        throw new Exception('Failed to create account: ' . $updateStmt->error, 500);
-                    }
-                }
-
-                $response['success'] = true;
-                $response['message'] = 'Resident added successfully';
-                $response['residentId'] = $residentId;
-            } else {
-                throw new Exception("Failed to add resident: " . $stmt->error, 500);
-            }
+            handleAddResident();
             break;
-
         case 'edit':
-            if (empty($_POST['id'])) {
-                throw new Exception('Resident ID is required', 400);
-            }
-
-            $residentId = intval($_POST['id']);
-            
-            // Check if resident exists
-            $checkStmt = $conn->prepare("SELECT id FROM resident_accounts WHERE id = ?");
-            $checkStmt->bind_param("i", $residentId);
-            $checkStmt->execute();
-            if ($checkStmt->get_result()->num_rows === 0) {
-                throw new Exception('Resident not found', 404);
-            }
-
-            // Sanitize inputs
-            $firstName = $conn->real_escape_string(trim($_POST['firstName']));
-            $middleName = isset($_POST['middleName']) ? $conn->real_escape_string(trim($_POST['middleName'])) : '';
-            $lastName = $conn->real_escape_string(trim($_POST['lastName']));
-            $suffix = isset($_POST['suffix']) ? $conn->real_escape_string(trim($_POST['suffix'])) : '';
-            $sex = in_array($_POST['sex'], ['male', 'female']) ? $_POST['sex'] : '';
-            $birthdate = $_POST['birthdate'];
-            $houseNumber = $conn->real_escape_string(trim($_POST['houseNumber']));
-            $purok = $conn->real_escape_string(trim($_POST['purok']));
-            $address = "House $houseNumber, Purok $purok, Balas, Mexico, Pampanga, Philippines";
-            $contactNumber = preg_replace('/[^0-9]/', '', $_POST['contactNumber']);
-            $email = isset($_POST['email']) ? filter_var($_POST['email'], FILTER_VALIDATE_EMAIL) : '';
-
-            // Validate fields
-            if (empty($sex)) throw new Exception('Invalid sex value', 400);
-            if (!DateTime::createFromFormat('Y-m-d', $birthdate)) throw new Exception('Invalid birthdate format', 400);
-            if (strlen($contactNumber) < 10 || strlen($contactNumber) > 15) throw new Exception('Contact number must be 10-15 digits', 400);
-
-            // Calculate age
-            $today = new DateTime();
-            $birthDate = new DateTime($birthdate);
-            if ($birthDate > $today) throw new Exception('Birthdate cannot be in the future', 400);
-            $age = $today->diff($birthDate)->y;
-
-            // Update resident
-            $stmt = $conn->prepare("UPDATE resident_accounts SET 
-                first_name = ?, middle_name = ?, last_name = ?, suffix = ?, 
-                sex = ?, birthdate = ?, age = ?, email = ?, phone = ?,
-                house_no = ?, purok = ?, full_address = ?
-                WHERE id = ?");
-            $stmt->bind_param("ssssssissssi", 
-                $firstName, $middleName, $lastName, $suffix, $sex, $birthdate, $age,
-                $email, $contactNumber, $houseNumber, $purok, $address, $residentId);
-
-            if ($stmt->execute()) {
-                $response['success'] = true;
-                $response['message'] = 'Resident updated successfully';
-            } else {
-                throw new Exception("Failed to update resident: " . $stmt->error, 500);
-            }
+            handleEditResident();
             break;
-
-        case 'process_request':
-            if (empty($_POST['id']) || empty($_POST['action'])) {
-                throw new Exception('Request ID and action are required', 400);
-            }
-
-            $id = intval($_POST['id']);
-            $action = $_POST['action'] === 'approve' ? 'approve' : 'reject';
-            $note = isset($_POST['note']) ? $conn->real_escape_string(trim($_POST['note'])) : '';
-            $status = $action === 'approve' ? 'Approved' : 'Disapproved';
-
-            if ($action === 'reject' && empty($note)) {
-                throw new Exception('A rejection reason is required', 400);
-            }
-
-            $stmt = $conn->prepare("UPDATE resident_accounts 
-                                   SET status = ?, processed_by = ?, date_processed = NOW(), notes = ?
-                                   WHERE id = ?");
-            $stmt->bind_param("sisi", $status, $_SESSION['user_id'], $note, $id);
-
-            if ($stmt->execute()) {
-                $response['success'] = true;
-                $response['message'] = "Account request $action successfully";
-            } else {
-                throw new Exception("Failed to process request: " . $stmt->error, 500);
-            }
-            break;
-
         case 'delete':
-            if (empty($_POST['id'])) {
-                throw new Exception('Resident ID is required', 400);
-            }
-
-            $id = intval($_POST['id']);
-            $stmt = $conn->prepare("DELETE FROM resident_accounts WHERE id = ?");
-            $stmt->bind_param("i", $id);
-            
-            if ($stmt->execute()) {
-                $response['success'] = true;
-                $response['message'] = 'Resident deleted successfully';
-            } else {
-                throw new Exception("Failed to delete resident: " . $stmt->error, 500);
-            }
+            handleDeleteResident();
             break;
-
+        case 'verify':
+            handleVerifyResident();
+            break;
+        case 'process_request':
+            handleProcessRequest();
+            break;
         case 'export':
-            header('Content-Type: application/vnd.ms-excel');
-            header('Content-Disposition: attachment; filename="residents_' . date('Y-m-d') . '.xls"');
-
-            $result = $conn->query("SELECT * FROM resident_accounts ORDER BY last_name, first_name");
-
-            echo "ID\tFirst Name\tMiddle Name\tLast Name\tSuffix\tSex\tBirthdate\tAge\tEmail\tPhone\tHouse No\tPurok\tAddress\tStatus\tRegistration Date\n";
-
-            while ($row = $result->fetch_assoc()) {
-                echo implode("\t", array_values($row)) . "\n";
-            }
-            exit();
-
+            handleExportResidents();
+            break;
         default:
-            throw new Exception('Invalid action', 400);
+            $response['message'] = 'Invalid action';
+            echo json_encode($response);
+            exit();
     }
-
 } catch (Exception $e) {
-    http_response_code($e->getCode() ?: 500);
     $response['message'] = $e->getMessage();
-    $response['code'] = $e->getCode();
+    echo json_encode($response);
+    exit();
 }
 
-ob_end_clean();
-echo json_encode($response);
-exit();
+function handleListResidents() {
+    global $conn, $response;
+    
+    $page = $_GET['page'] ?? 1;
+    $per_page = $_GET['per_page'] ?? 10;
+    $search = $_GET['search'] ?? '';
+    $id = $_GET['id'] ?? null;
+    
+    $offset = ($page - 1) * $per_page;
+    
+    $query = "SELECT r.*, ra.account_status, ra.notes as account_notes, 
+              ra.date_processed as account_date_processed, 
+              CONCAT(a.first_name, ' ', a.last_name) as processed_by
+              FROM residents r
+              LEFT JOIN resident_accounts ra ON r.id = ra.resident_id
+              LEFT JOIN admin_users a ON ra.processed_by = a.id";
+    
+    $where = [];
+    $params = [];
+    $types = '';
+    
+    if ($id) {
+        $where[] = "r.id = ?";
+        $params[] = $id;
+        $types .= 'i';
+    } else {
+        $where[] = "r.verification_status = 'Verified'";
+        
+        if ($search) {
+            $where[] = "(CONCAT(r.first_name, ' ', r.last_name) LIKE ? OR r.contact_number LIKE ? OR r.email LIKE ?)";
+            $searchTerm = "%$search%";
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $types .= 'sss';
+        }
+    }
+    
+    if (!empty($where)) {
+        $query .= " WHERE " . implode(" AND ", $where);
+    }
+    
+    // Get total count
+    $countQuery = "SELECT COUNT(*) as total FROM residents r";
+    if (!empty($where)) {
+        $countQuery .= " WHERE " . implode(" AND ", $where);
+    }
+    
+    $stmt = $conn->prepare($countQuery);
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    $stmt->execute();
+    $total = $stmt->get_result()->fetch_assoc()['total'];
+    
+    // Get paginated data
+    $query .= " ORDER BY r.last_name, r.first_name LIMIT ? OFFSET ?";
+    $params[] = $per_page;
+    $params[] = $offset;
+    $types .= 'ii';
+    
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    $residents = [];
+    while ($row = $result->fetch_assoc()) {
+        $residents[] = $row;
+    }
+    
+    $response['success'] = true;
+    $response['data'] = $residents;
+    $response['pagination'] = [
+        'total' => $total,
+        'page' => $page,
+        'per_page' => $per_page,
+        'total_pages' => ceil($total / $per_page)
+    ];
+    
+    echo json_encode($response);
+}
+
+function handleAccountRequests() {
+    global $conn, $response;
+    
+    $page = $_GET['page'] ?? 1;
+    $per_page = $_GET['per_page'] ?? 10;
+    $status = $_GET['status'] ?? 'all';
+    $id = $_GET['id'] ?? null;
+    
+    $offset = ($page - 1) * $per_page;
+    
+    $query = "SELECT r.*, ra.id as account_id, ra.account_status, ra.notes, 
+              ra.date_processed, ra.date_requested,
+              CONCAT(a.first_name, ' ', a.last_name) as processed_by
+              FROM residents r
+              JOIN resident_accounts ra ON r.id = ra.resident_id
+              LEFT JOIN admin_users a ON ra.processed_by = a.id";
+    
+    $where = [];
+    $params = [];
+    $types = '';
+    
+    if ($id) {
+        $where[] = "ra.id = ?";
+        $params[] = $id;
+        $types .= 'i';
+    } else {
+        if ($status !== 'all') {
+            $where[] = "ra.account_status = ?";
+            $params[] = $status;
+            $types .= 's';
+        }
+    }
+    
+    if (!empty($where)) {
+        $query .= " WHERE " . implode(" AND ", $where);
+    }
+    
+    // Get total count and pending count
+    $countQuery = "SELECT 
+                  COUNT(*) as total,
+                  SUM(CASE WHEN ra.account_status = 'Pending' THEN 1 ELSE 0 END) as pending_count
+                  FROM resident_accounts ra";
+    if (!empty($where)) {
+        $countQuery = str_replace("r.*, ra.id", "COUNT(*) as total, SUM(CASE WHEN ra.account_status = 'Pending' THEN 1 ELSE 0 END) as pending_count", $query);
+        $countQuery = preg_replace("/ORDER BY.*$/", "", $countQuery);
+        $countQuery = preg_replace("/LIMIT.*$/", "", $countQuery);
+    }
+    
+    $stmt = $conn->prepare($countQuery);
+    if (!empty($params)) {
+        $stmt->bind_param($types, ...$params);
+    }
+    $stmt->execute();
+    $countResult = $stmt->get_result()->fetch_assoc();
+    $total = $countResult['total'];
+    $pending_count = $countResult['pending_count'] ?? 0;
+    
+    // Get paginated data
+    $query .= " ORDER BY ra.date_requested DESC LIMIT ? OFFSET ?";
+    $params[] = $per_page;
+    $params[] = $offset;
+    $types .= 'ii';
+    
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    $requests = [];
+    while ($row = $result->fetch_assoc()) {
+        $requests[] = $row;
+    }
+    
+    $response['success'] = true;
+    $response['data'] = $requests;
+    $response['pending_count'] = $pending_count;
+    $response['pagination'] = [
+        'total' => $total,
+        'page' => $page,
+        'per_page' => $per_page,
+        'total_pages' => ceil($total / $per_page)
+    ];
+    
+    echo json_encode($response);
+}
+
+function handleAddResident() {
+    global $conn, $response;
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    // Validate required fields
+    $required = ['firstName', 'lastName', 'sex', 'contactNumber', 'houseNumber', 'purok', 'birthdate'];
+    foreach ($required as $field) {
+        if (empty($data[$field])) {
+            throw new Exception("Missing required field: $field");
+        }
+    }
+    
+    // Calculate age
+    $birthdate = new DateTime($data['birthdate']);
+    $today = new DateTime();
+    $age = $today->diff($birthdate)->y;
+    
+    // Generate address
+    $address = "House {$data['houseNumber']}, Purok {$data['purok']}, Balas, Mexico, Pampanga, Philippines";
+    
+    // Insert resident
+    $stmt = $conn->prepare("INSERT INTO residents 
+        (first_name, last_name, middle_name, suffix, sex, birthdate, age, contact_number, email, house_number, purok, address)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    
+    $stmt->bind_param("ssssssisssss", 
+        $data['firstName'], $data['lastName'], $data['middleName'] ?? '', $data['suffix'] ?? '',
+        $data['sex'], $data['birthdate'], $age, $data['contactNumber'], $data['email'] ?? '',
+        $data['houseNumber'], $data['purok'], $address);
+    
+    if (!$stmt->execute()) {
+        throw new Exception("Failed to add resident: " . $stmt->error);
+    }
+    
+    $resident_id = $stmt->insert_id;
+    
+    // Create account if requested
+    if (!empty($data['createAccount']) && $data['createAccount'] === 'true') {
+        if (empty($data['email']) || empty($data['password'])) {
+            throw new Exception("Email and password are required to create an account");
+        }
+        
+        $hashed_password = password_hash($data['password'], PASSWORD_DEFAULT);
+        
+        $stmt = $conn->prepare("INSERT INTO resident_accounts 
+            (resident_id, email, password) VALUES (?, ?, ?)");
+        $stmt->bind_param("iss", $resident_id, $data['email'], $hashed_password);
+        
+        if (!$stmt->execute()) {
+            throw new Exception("Failed to create resident account: " . $stmt->error);
+        }
+    }
+    
+    $response['success'] = true;
+    $response['message'] = 'Resident added successfully';
+    echo json_encode($response);
+}
+
+function handleEditResident() {
+    global $conn, $response;
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    // Validate required fields
+    if (empty($data['id'])) {
+        throw new Exception("Resident ID is required");
+    }
+    
+    $required = ['firstName', 'lastName', 'sex', 'contactNumber', 'houseNumber', 'purok', 'birthdate'];
+    foreach ($required as $field) {
+        if (empty($data[$field])) {
+            throw new Exception("Missing required field: $field");
+        }
+    }
+    
+    // Calculate age
+    $birthdate = new DateTime($data['birthdate']);
+    $today = new DateTime();
+    $age = $today->diff($birthdate)->y;
+    
+    // Generate address
+    $address = "House {$data['houseNumber']}, Purok {$data['purok']}, Balas, Mexico, Pampanga, Philippines";
+    
+    // Update resident
+    $stmt = $conn->prepare("UPDATE residents SET 
+        first_name = ?, last_name = ?, middle_name = ?, suffix = ?, sex = ?, 
+        birthdate = ?, age = ?, contact_number = ?, email = ?, 
+        house_number = ?, purok = ?, address = ?
+        WHERE id = ?");
+    
+    $stmt->bind_param("ssssssisssssi", 
+        $data['firstName'], $data['lastName'], $data['middleName'] ?? '', $data['suffix'] ?? '',
+        $data['sex'], $data['birthdate'], $age, $data['contactNumber'], $data['email'] ?? '',
+        $data['houseNumber'], $data['purok'], $address, $data['id']);
+    
+    if (!$stmt->execute()) {
+        throw new Exception("Failed to update resident: " . $stmt->error);
+    }
+    
+    $response['success'] = true;
+    $response['message'] = 'Resident updated successfully';
+    echo json_encode($response);
+}
+
+function handleDeleteResident() {
+    global $conn, $response;
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (empty($data['id'])) {
+        throw new Exception("Resident ID is required");
+    }
+    
+    $stmt = $conn->prepare("DELETE FROM residents WHERE id = ?");
+    $stmt->bind_param("i", $data['id']);
+    
+    if (!$stmt->execute()) {
+        throw new Exception("Failed to delete resident: " . $stmt->error);
+    }
+    
+    $response['success'] = true;
+    $response['message'] = 'Resident deleted successfully';
+    echo json_encode($response);
+}
+
+function handleVerifyResident() {
+    global $conn, $response;
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (empty($data['id'])) {
+        throw new Exception("Resident ID is required");
+    }
+    
+    $user_id = getUserId();
+    
+    $stmt = $conn->prepare("UPDATE residents SET verification_status = 'Verified' WHERE id = ?");
+    $stmt->bind_param("i", $data['id']);
+    
+    if (!$stmt->execute()) {
+        throw new Exception("Failed to verify resident: " . $stmt->error);
+    }
+    
+    $response['success'] = true;
+    $response['message'] = 'Resident verified successfully';
+    echo json_encode($response);
+}
+
+function handleProcessRequest() {
+    global $conn, $response;
+    
+    $data = json_decode(file_get_contents('php://input'), true);
+    
+    if (empty($data['id']) || empty($data['action'])) {
+        throw new Exception("Request ID and action are required");
+    }
+    
+    $user_id = getUserId();
+    $status = $data['action'] === 'approve' ? 'Approved' : 'Disapproved';
+    $note = $data['note'] ?? '';
+    
+    $stmt = $conn->prepare("UPDATE resident_accounts SET 
+        account_status = ?, processed_by = ?, date_processed = NOW(), notes = ?
+        WHERE id = ?");
+    $stmt->bind_param("sisi", $status, $user_id, $note, $data['id']);
+    
+    if (!$stmt->execute()) {
+        throw new Exception("Failed to process request: " . $stmt->error);
+    }
+    
+    $response['success'] = true;
+    $response['message'] = "Request {$data['action']}d successfully";
+    echo json_encode($response);
+}
+
+function handleExportResidents() {
+    global $conn;
+    
+    header('Content-Type: text/csv');
+    header('Content-Disposition: attachment; filename="residents_' . date('Y-m-d') . '.csv"');
+    
+    $output = fopen('php://output', 'w');
+    
+    // Header row
+    fputcsv($output, [
+        'ID', 'First Name', 'Last Name', 'Middle Name', 'Suffix', 'Sex', 'Birthdate', 'Age',
+        'Contact Number', 'Email', 'House Number', 'Purok', 'Address', 'Verification Status',
+        'Resident Status', 'Date Created', 'Date Updated'
+    ]);
+    
+    // Data rows
+    $query = "SELECT * FROM residents ORDER BY last_name, first_name";
+    $result = $conn->query($query);
+    
+    while ($row = $result->fetch_assoc()) {
+        fputcsv($output, [
+            $row['id'],
+            $row['first_name'],
+            $row['last_name'],
+            $row['middle_name'],
+            $row['suffix'],
+            $row['sex'],
+            $row['birthdate'],
+            $row['age'],
+            $row['contact_number'],
+            $row['email'],
+            $row['house_number'],
+            $row['purok'],
+            $row['address'],
+            $row['verification_status'],
+            $row['resident_status'],
+            $row['created_at'],
+            $row['updated_at']
+        ]);
+    }
+    
+    fclose($output);
+    exit();
+}
+?>

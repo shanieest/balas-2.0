@@ -1,172 +1,222 @@
 <?php
+// announcements-backend.php
+
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/db.php';
+
+// Check if user is authenticated
 requireAuth();
 
-// Only allow AJAX requests for backend files
-if (!isset($_SERVER['HTTP_X_REQUESTED_WITH']) || 
-    strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) !== 'xmlhttprequest') {
-    header('HTTP/1.0 403 Forbidden');
-    die('Direct access not allowed');
-}
+// Database connection
+$db = connectToDB();
 
-header('Content-Type: application/json');
-
-$action = $_GET['action'] ?? '';
-$response = ['success' => false, 'message' => ''];
-
-try {
-    switch ($action) {
-        case 'get_announcements':
-            $result = $conn->query("SELECT a.*, u.username as posted_by_name 
-                                  FROM announcements a
-                                  JOIN admin_users u ON a.posted_by = u.id
-                                  ORDER BY a.created_at DESC");
-            $response['data'] = $result->fetch_all(MYSQLI_ASSOC);
-            $response['success'] = true;
-            break;
-            
-        case 'get_announcement':
-            $id = $_GET['id'];
-            $stmt = $conn->prepare("SELECT a.*, u.username as posted_by_name 
-                                   FROM announcements a
-                                   JOIN admin_users u ON a.posted_by = u.id
-                                   WHERE a.id = ?");
-            $stmt->bind_param("i", $id);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            
-            if ($result->num_rows > 0) {
-                $response['data'] = $result->fetch_assoc();
-                $response['success'] = true;
-            } else {
-                $response['message'] = 'Announcement not found';
-            }
-            break;
-            
-        case 'add_announcement':
-            $title = $conn->real_escape_string($_POST['title']);
-            $content = $conn->real_escape_string($_POST['content']);
-            $posted_by = getUserId();
-            
-            // Handle file upload
-            $image_path = null;
-            if (isset($_FILES['image']) && $_FILES['image']['error'] == UPLOAD_ERR_OK) {
-                $upload_dir = 'assets/uploads/announcements/';
-                if (!is_dir($upload_dir)) {
-                    mkdir($upload_dir, 0777, true);
-                }
-                
-                $file_ext = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
-                $filename = uniqid() . '.' . $file_ext;
-                $target_path = $upload_dir . $filename;
-                
-                if (move_uploaded_file($_FILES['image']['tmp_name'], $target_path)) {
-                    $image_path = $target_path;
-                }
-            }
-            
-            $stmt = $conn->prepare("INSERT INTO announcements (title, content, image_path, posted_by) 
-                                    VALUES (?, ?, ?, ?)");
-            $stmt->bind_param("sssi", $title, $content, $image_path, $posted_by);
-            
-            if ($stmt->execute()) {
-                // Log activity
-                logActivity($conn, $posted_by, "Added new announcement: $title");
-                
-                $response['success'] = true;
-                $response['message'] = 'Announcement added successfully';
-            } else {
-                throw new Exception("Failed to add announcement: " . $stmt->error);
-            }
-            break;
-            
-        case 'update_announcement':
-            $id = $_POST['id'];
-            $title = $conn->real_escape_string($_POST['title']);
-            $content = $conn->real_escape_string($_POST['content']);
-            
-            // Get current image path
-            $stmt = $conn->prepare("SELECT image_path FROM announcements WHERE id = ?");
-            $stmt->bind_param("i", $id);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            $current_image = $result->fetch_assoc()['image_path'];
-            
-            // Handle file upload
-            $image_path = $current_image;
-            if (isset($_FILES['image']) && $_FILES['image']['error'] == UPLOAD_ERR_OK) {
-                // Delete old image if exists
-                if ($current_image && file_exists($current_image)) {
-                    unlink($current_image);
-                }
-                
-                $upload_dir = 'assets/uploads/announcements/';
-                if (!is_dir($upload_dir)) {
-                    mkdir($upload_dir, 0777, true);
-                }
-                
-                $file_ext = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
-                $filename = uniqid() . '.' . $file_ext;
-                $target_path = $upload_dir . $filename;
-                
-                if (move_uploaded_file($_FILES['image']['tmp_name'], $target_path)) {
-                    $image_path = $target_path;
-                }
-            }
-            
-            $stmt = $conn->prepare("UPDATE announcements 
-                                    SET title = ?, content = ?, image_path = ?, updated_at = NOW() 
-                                    WHERE id = ?");
-            $stmt->bind_param("sssi", $title, $content, $image_path, $id);
-            
-            if ($stmt->execute()) {
-                // Log activity
-                logActivity($conn, getUserId(), "Updated announcement ID $id");
-                
-                $response['success'] = true;
-                $response['message'] = 'Announcement updated successfully';
-            } else {
-                throw new Exception("Failed to update announcement: " . $stmt->error);
-            }
-            break;
-            
-        case 'delete_announcement':
-            $id = $_POST['id'];
-            
-            // Get image path first
-            $stmt = $conn->prepare("SELECT image_path FROM announcements WHERE id = ?");
-            $stmt->bind_param("i", $id);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            $image_path = $result->fetch_assoc()['image_path'];
-            
-            // Delete announcement
-            $stmt = $conn->prepare("DELETE FROM announcements WHERE id = ?");
-            $stmt->bind_param("i", $id);
-            
-            if ($stmt->execute()) {
-                // Delete image file if exists
-                if ($image_path && file_exists($image_path)) {
-                    unlink($image_path);
-                }
-                
-                // Log activity
-                logActivity($conn, getUserId(), "Deleted announcement ID $id");
-                
-                $response['success'] = true;
-                $response['message'] = 'Announcement deleted successfully';
-            } else {
-                throw new Exception("Failed to delete announcement: " . $stmt->error);
-            }
-            break;
-            
-        default:
-            $response['message'] = 'Invalid action';
+// Handle form submissions
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['action'])) {
+        switch ($_POST['action']) {
+            case 'add':
+                handleAddAnnouncement($db);
+                break;
+            case 'edit':
+                handleEditAnnouncement($db);
+                break;
+            case 'delete':
+                handleDeleteAnnouncement($db);
+                break;
+        }
     }
-} catch (Exception $e) {
-    $response['message'] = $e->getMessage();
 }
 
-echo json_encode($response);
+// Handle GET requests (for fetching single announcement)
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action'])) {
+    if ($_GET['action'] === 'get' && isset($_GET['id'])) {
+        $announcement = getAnnouncementById($db, $_GET['id']);
+        header('Content-Type: application/json');
+        echo json_encode($announcement);
+        exit();
+    }
+}
+
+// Function to handle adding a new announcement
+function handleAddAnnouncement($db) {
+    $title = trim($_POST['title']);
+    $content = trim($_POST['content']);
+    $date = $_POST['date'];
+    $posted_by = $_SESSION['user_id'];
+    
+    // Validate required fields
+    if (empty($title) || empty($content) || empty($date)) {
+        $_SESSION['message'] = ['type' => 'danger', 'text' => 'All required fields must be filled'];
+        header("Location: announcements.php");
+        exit();
+    }
+    
+    // Handle file upload
+    $image_path = null;
+    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+        $upload_dir = __DIR__ . '/assets/announcements/';
+        if (!file_exists($upload_dir)) {
+            mkdir($upload_dir, 0755, true);
+        }
+        
+        // Validate image file
+        $allowed_types = ['image/jpeg', 'image/png', 'image/gif'];
+        $file_info = finfo_open(FILEINFO_MIME_TYPE);
+        $mime_type = finfo_file($file_info, $_FILES['image']['tmp_name']);
+        finfo_close($file_info);
+        
+        if (!in_array($mime_type, $allowed_types)) {
+            $_SESSION['message'] = ['type' => 'danger', 'text' => 'Only JPG, PNG, and GIF images are allowed'];
+            header("Location: announcements.php");
+            exit();
+        }
+        
+        $file_ext = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
+        $filename = uniqid('announcement_') . '.' . $file_ext;
+        $destination = $upload_dir . $filename;
+        
+        if (move_uploaded_file($_FILES['image']['tmp_name'], $destination)) {
+            $image_path = 'assets/announcements/' . $filename;
+        }
+    }
+    
+    $stmt = $db->prepare("INSERT INTO announcements (title, content, image_path, date_posted, posted_by) VALUES (?, ?, ?, ?, ?)");
+    $stmt->bind_param("ssssi", $title, $content, $image_path, $date, $posted_by);
+    
+    if ($stmt->execute()) {
+        $_SESSION['message'] = ['type' => 'success', 'text' => 'Announcement added successfully'];
+    } else {
+        $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error adding announcement: ' . $db->error];
+    }
+    
+    $stmt->close();
+    header("Location: announcements.php");
+    exit();
+}
+
+// Function to handle editing an announcement
+function handleEditAnnouncement($db) {
+    $id = $_POST['id'];
+    $title = trim($_POST['title']);
+    $content = trim($_POST['content']);
+    $date = $_POST['date'];
+    
+    // Validate required fields
+    if (empty($title) || empty($content) || empty($date)) {
+        $_SESSION['message'] = ['type' => 'danger', 'text' => 'All required fields must be filled'];
+        header("Location: announcements.php");
+        exit();
+    }
+    
+    // Get current announcement data
+    $stmt = $db->prepare("SELECT image_path FROM announcements WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $announcement = $result->fetch_assoc();
+    $stmt->close();
+    
+    $image_path = $announcement['image_path'];
+    
+    // Handle file upload if new image is provided
+    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+        // Validate image file
+        $allowed_types = ['image/jpeg', 'image/png', 'image/gif'];
+        $file_info = finfo_open(FILEINFO_MIME_TYPE);
+        $mime_type = finfo_file($file_info, $_FILES['image']['tmp_name']);
+        finfo_close($file_info);
+        
+        if (!in_array($mime_type, $allowed_types)) {
+            $_SESSION['message'] = ['type' => 'danger', 'text' => 'Only JPG, PNG, and GIF images are allowed'];
+            header("Location: announcements.php");
+            exit();
+        }
+        
+        // Delete old image if exists
+        if ($image_path && file_exists(__DIR__ . '/' . $image_path)) {
+            unlink(__DIR__ . '/' . $image_path);
+        }
+        
+        $upload_dir = __DIR__ . '/assets/announcements/';
+        $file_ext = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
+        $filename = uniqid('announcement_') . '.' . $file_ext;
+        $destination = $upload_dir . $filename;
+        
+        if (move_uploaded_file($_FILES['image']['tmp_name'], $destination)) {
+            $image_path = 'assets/announcements/' . $filename;
+        }
+    }
+    
+    $stmt = $db->prepare("UPDATE announcements SET title = ?, content = ?, image_path = ?, date_posted = ? WHERE id = ?");
+    $stmt->bind_param("ssssi", $title, $content, $image_path, $date, $id);
+    
+    if ($stmt->execute()) {
+        $_SESSION['message'] = ['type' => 'success', 'text' => 'Announcement updated successfully'];
+    } else {
+        $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error updating announcement: ' . $db->error];
+    }
+    
+    $stmt->close();
+    header("Location: announcements.php");
+    exit();
+}
+
+// Function to handle deleting an announcement
+function handleDeleteAnnouncement($db) {
+    $id = $_POST['id'];
+    
+    // First get the image path to delete the file
+    $stmt = $db->prepare("SELECT image_path FROM announcements WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $announcement = $result->fetch_assoc();
+    $stmt->close();
+    
+    // Delete the image file if exists
+    if ($announcement['image_path'] && file_exists(__DIR__ . '/' . $announcement['image_path'])) {
+        unlink(__DIR__ . '/' . $announcement['image_path']);
+    }
+    
+    // Delete the announcement from database
+    $stmt = $db->prepare("DELETE FROM announcements WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    
+    if ($stmt->execute()) {
+        $_SESSION['message'] = ['type' => 'success', 'text' => 'Announcement deleted successfully'];
+    } else {
+        $_SESSION['message'] = ['type' => 'danger', 'text' => 'Error deleting announcement: ' . $db->error];
+    }
+    
+    $stmt->close();
+    header("Location: announcements.php");
+    exit();
+}
+
+// Function to get all announcements
+function getAllAnnouncements($db) {
+    $query = "SELECT a.*, u.username FROM announcements a 
+              JOIN admin_users u ON a.posted_by = u.id 
+              ORDER BY a.date_posted DESC, a.created_at DESC";
+    $result = $db->query($query);
+    
+    $announcements = [];
+    while ($row = $result->fetch_assoc()) {
+        $announcements[] = $row;
+    }
+    
+    return $announcements;
+}
+
+// Function to get a single announcement by ID
+function getAnnouncementById($db, $id) {
+    $stmt = $db->prepare("SELECT * FROM announcements WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $announcement = $result->fetch_assoc();
+    $stmt->close();
+    
+    return $announcement;
+}
 ?>
