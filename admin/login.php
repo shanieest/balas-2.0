@@ -1,6 +1,8 @@
 <?php
 session_start();
 require_once 'includes/db.php';
+require_once 'includes/functions.php';
+
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $username = $conn->real_escape_string($_POST['username']);

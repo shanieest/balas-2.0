@@ -1,3 +1,36 @@
+<?php
+require_once 'includes/auth.php';
+require_once 'includes/db.php';
+
+// Get resident data
+$residentId = $_SESSION['resident_id'];
+$query = "SELECT * FROM residents WHERE id = ?";
+$stmt = $conn->prepare($query);
+$stmt->bind_param("i", $residentId);
+$stmt->execute();
+$result = $stmt->get_result();
+$resident = $result->fetch_assoc();
+
+// Get document requests
+$docQuery = "SELECT * FROM document_requests WHERE resident_id = ? ORDER BY date_requested DESC LIMIT 5";
+$docStmt = $conn->prepare($docQuery);
+$docStmt->bind_param("i", $residentId);
+$docStmt->execute();
+$docRequests = $docStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+// Get announcements
+$announceQuery = "SELECT * FROM announcements ORDER BY date_posted DESC LIMIT 5";
+$announceResult = $conn->query($announceQuery);
+$announcements = $announceResult->fetch_all(MYSQLI_ASSOC);
+
+// Get activity logs
+$activityQuery = "SELECT * FROM activity_logs WHERE user_id = ? ORDER BY timestamp DESC LIMIT 5";
+$activityStmt = $conn->prepare($activityQuery);
+$activityStmt->bind_param("i", $residentId);
+$activityStmt->execute();
+$activities = $activityStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

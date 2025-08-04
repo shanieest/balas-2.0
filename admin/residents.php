@@ -1,5 +1,5 @@
 <?php 
-// residents.php
+
 require_once __DIR__ . '/includes/auth.php';
 requireAuth();
 ?>
@@ -1328,25 +1328,27 @@ function viewRequest(id) {
             if (data.success && data.data) {
                 displayRequestModal(data.data);
             } else {
-                showToast('Request not found', 'danger');
+                showToast(data.message || 'Request not found', 'danger');
+                return Promise.reject('Request not found');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showToast('Failed to load request details: ' + error.message, 'danger');
+            showToast('Failed to load request details: ' + (error.message || error), 'danger');
         });
 }
-
 // Display request data in modal
 function displayRequestModal(request) {
     const viewModal = getElement('#viewRequestModal');
     if (!viewModal) return;
     
     // Format birthdate
-    const birthdate = new Date(request.birthdate);
-    const formattedBirthdate = birthdate.toLocaleDateString('en-US', { 
-        year: 'numeric', month: 'long', day: 'numeric' 
-    }) + ` (${request.age} years old)`;
+    const birthdate = request.birthdate ? new Date(request.birthdate) : null;
+    const formattedBirthdate = birthdate ? 
+        birthdate.toLocaleDateString('en-US', { 
+            year: 'numeric', month: 'long', day: 'numeric' 
+        }) + (request.age ? ` (${request.age} years old)` : '') : 
+        'N/A';
     
     // Set status badge class
     let statusClass = '';
@@ -1358,14 +1360,19 @@ function displayRequestModal(request) {
         statusClass = 'account-disapproved';
     }
     
+    // Safely generate request ID
+    const requestId = request.id ? `BRGY-REQ-${request.id.toString().padStart(4, '0')}` : 'N/A';
+    
     // Update modal content
-    updateModalField(viewModal, '.request-status-badge', `badge ${statusClass}`, request.account_status);
-    updateModalText(viewModal, '.request-name', `${request.first_name} ${request.last_name}`);
-    updateModalText(viewModal, '.request-id', `Request ID: BRGY-REQ-${request.id.toString().padStart(4, '0')}`);
+    updateModalField(viewModal, '.request-status-badge', `badge ${statusClass}`, request.account_status || 'N/A');
+    updateModalText(viewModal, '.request-name', request.first_name && request.last_name ? 
+        `${request.first_name} ${request.last_name}` : 'N/A');
+    updateModalText(viewModal, '.request-id', `Request ID: ${requestId}`);
     updateModalText(viewModal, '.request-birthdate', formattedBirthdate);
-    updateModalText(viewModal, '.request-sex', request.sex === 'male' ? 'Male' : 'Female');
-    updateModalText(viewModal, '.request-contact', request.contact_number);
-    updateModalText(viewModal, '.request-email', request.email);
+    updateModalText(viewModal, '.request-sex', request.sex ? 
+        (request.sex === 'male' ? 'Male' : 'Female') : 'N/A');
+    updateModalText(viewModal, '.request-contact', request.contact_number || 'N/A');
+    updateModalText(viewModal, '.request-email', request.email || 'N/A');
     updateModalImage(viewModal, '.request-photo', request.photo_path || 'img/default-profile.jpg');
     updateModalImage(viewModal, '.request-valid-id', request.valid_id_path || 'img/default-id.jpg');
     updateModalText(viewModal, '.request-date-requested', request.date_requested || 'N/A');
@@ -1383,8 +1390,8 @@ function displayRequestModal(request) {
     const approveBtn = getElement('#approveRequestBtn');
     const rejectBtn = getElement('#rejectRequestBtn');
     if (approveBtn && rejectBtn) {
-        approveBtn.dataset.id = request.id;
-        rejectBtn.dataset.id = request.id;
+        approveBtn.dataset.id = request.id || '';
+        rejectBtn.dataset.id = request.id || '';
         
         if (request.account_status !== 'Pending') {
             approveBtn.style.display = 'none';
@@ -1653,12 +1660,15 @@ function processAccountRequest(id, action, note) {
         return;
     }
 
+    // Create form data to properly send the request
+    const formData = new FormData();
+    formData.append('id', id);
+    formData.append('action', action);
+    formData.append('note', note);
+
     fetch('residents-backend.php?action=process_request', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: `id=${id}&action=${action}&note=${encodeURIComponent(note)}`
+        body: formData
     })
     .then(handleResponse)
     .then(data => {
@@ -1821,32 +1831,35 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Approve/Reject request buttons in view modal
-    const approveRequestBtn = getElement('#approveRequestBtn');
-    const rejectRequestBtn = getElement('#rejectRequestBtn');
-    if (approveRequestBtn && rejectRequestBtn) {
-        approveRequestBtn.addEventListener('click', function() {
-            showProcessRequestModal(this.dataset.id, 'approve');
-        });
-        
-        rejectRequestBtn.addEventListener('click', function() {
-            showProcessRequestModal(this.dataset.id, 'reject');
-        });
-    }
+   // Approve/Reject request buttons in view modal
+const approveRequestBtn = getElement('#approveRequestBtn');
+const rejectRequestBtn = getElement('#rejectRequestBtn');
+if (approveRequestBtn && rejectRequestBtn) {
+    approveRequestBtn.addEventListener('click', function() {
+        currentRequestId = this.dataset.id; // Set the global variable
+        showProcessRequestModal(this.dataset.id, 'approve');
+    });
     
+    rejectRequestBtn.addEventListener('click', function() {
+        currentRequestId = this.dataset.id; // Set the global variable
+        showProcessRequestModal(this.dataset.id, 'reject');
+    });
+}
     // Confirm process request button
-    const confirmProcessRequestBtn = getElement('#confirmProcessRequestBtn');
-    if (confirmProcessRequestBtn) {
-        confirmProcessRequestBtn.addEventListener('click', function() {
-            const requestId = getElement('#requestIdForProcess')?.value;
-            const action = getElement('#requestActionType')?.value;
-            const note = getElement('#requestNote')?.value;
-            
-            if (requestId) {
-                processAccountRequest(requestId, action, note);
-            }
-        });
-    }
-    
+const confirmProcessRequestBtn = getElement('#confirmProcessRequestBtn');
+if (confirmProcessRequestBtn) {
+    confirmProcessRequestBtn.addEventListener('click', function() {
+        const requestId = currentRequestId; // Use the global variable
+        const action = getElement('#requestActionType')?.value;
+        const note = getElement('#requestNote')?.value || '';
+        
+        if (requestId && action) {
+            processAccountRequest(requestId, action, note);
+        } else {
+            showToast('Request ID and action are required', 'danger');
+        }
+    });
+}
     // Calculate age when birthdate changes
     const birthdateInput = getElement('#birthdate');
     if (birthdateInput) {

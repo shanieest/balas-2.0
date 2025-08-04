@@ -129,6 +129,8 @@ function handleListResidents() {
     echo json_encode($response);
 }
 
+
+
 function handleAccountRequests() {
     global $conn, $response;
     
@@ -139,6 +141,7 @@ function handleAccountRequests() {
     
     $offset = ($page - 1) * $per_page;
     
+    // Main query for fetching data
     $query = "SELECT r.*, ra.id as account_id, ra.account_status, ra.notes, 
               ra.date_processed, ra.date_requested,
               CONCAT(a.first_name, ' ', a.last_name) as processed_by
@@ -166,55 +169,60 @@ function handleAccountRequests() {
         $query .= " WHERE " . implode(" AND ", $where);
     }
     
-    // Get total count and pending count
-    $countQuery = "SELECT 
-                  COUNT(*) as total,
+    // Count query
+    $countQuery = "SELECT COUNT(*) as total,
                   SUM(CASE WHEN ra.account_status = 'Pending' THEN 1 ELSE 0 END) as pending_count
-                  FROM resident_accounts ra";
+                  FROM residents r
+                  JOIN resident_accounts ra ON r.id = ra.resident_id";
+    
     if (!empty($where)) {
-        $countQuery = str_replace("r.*, ra.id", "COUNT(*) as total, SUM(CASE WHEN ra.account_status = 'Pending' THEN 1 ELSE 0 END) as pending_count", $query);
-        $countQuery = preg_replace("/ORDER BY.*$/", "", $countQuery);
-        $countQuery = preg_replace("/LIMIT.*$/", "", $countQuery);
+        $countQuery .= " WHERE " . implode(" AND ", $where);
     }
     
-    $stmt = $conn->prepare($countQuery);
-    if (!empty($params)) {
-        $stmt->bind_param($types, ...$params);
+    $countStmt = $conn->prepare($countQuery);
+    if ($countStmt) {
+        if (!empty($params)) {
+            $countStmt->bind_param($types, ...$params);
+        }
+        $countStmt->execute();
+        $countResult = $countStmt->get_result()->fetch_assoc();
+        $total = $countResult['total'];
+        $pending_count = $countResult['pending_count'] ?? 0;
+    } else {
+        throw new Exception("Failed to prepare count query: " . $conn->error);
     }
-    $stmt->execute();
-    $countResult = $stmt->get_result()->fetch_assoc();
-    $total = $countResult['total'];
-    $pending_count = $countResult['pending_count'] ?? 0;
     
-    // Get paginated data
+    // Main data query with pagination
     $query .= " ORDER BY ra.date_requested DESC LIMIT ? OFFSET ?";
-    $params[] = $per_page;
-    $params[] = $offset;
-    $types .= 'ii';
+    $limitParams = array_merge($params, [$per_page, $offset]);
+    $limitTypes = $types . 'ii';
     
     $stmt = $conn->prepare($query);
-    $stmt->bind_param($types, ...$params);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    $requests = [];
-    while ($row = $result->fetch_assoc()) {
-        $requests[] = $row;
+    if ($stmt) {
+        $stmt->bind_param($limitTypes, ...$limitParams);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        $requests = [];
+        while ($row = $result->fetch_assoc()) {
+            $requests[] = $row;
+        }
+        
+        $response['success'] = true;
+        $response['data'] = $requests;
+        $response['pending_count'] = $pending_count;
+        $response['pagination'] = [
+            'total' => $total,
+            'page' => $page,
+            'per_page' => $per_page,
+            'total_pages' => ceil($total / $per_page)
+        ];
+    } else {
+        throw new Exception("Failed to prepare data query: " . $conn->error);
     }
-    
-    $response['success'] = true;
-    $response['data'] = $requests;
-    $response['pending_count'] = $pending_count;
-    $response['pagination'] = [
-        'total' => $total,
-        'page' => $page,
-        'per_page' => $per_page,
-        'total_pages' => ceil($total / $per_page)
-    ];
     
     echo json_encode($response);
 }
-
 function handleAddResident() {
     global $conn, $response;
     
