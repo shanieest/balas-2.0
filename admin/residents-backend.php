@@ -1,10 +1,30 @@
 <?php
+
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+// Log errors to a file
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/php_errors.log');
+
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/db.php';
 
 header('Content-Type: application/json');
 
 $response = ['success' => false, 'message' => ''];
+
+// Helper function to bind params dynamically with reference
+function bindParams(mysqli_stmt $stmt, string $types, array $params) {
+    $bind_names[] = $types;
+    for ($i = 0; $i < count($params); $i++) {
+        $bind_name = 'bind' . $i;
+        $$bind_name = $params[$i];
+        $bind_names[] = &$$bind_name;
+    }
+    call_user_func_array([$stmt, 'bind_param'], $bind_names);
+}
 
 try {
     $action = $_GET['action'] ?? '';
@@ -94,21 +114,20 @@ function handleListResidents() {
         $countQuery .= " WHERE " . implode(" AND ", $where);
     }
     
-    $stmt = $conn->prepare($countQuery);
+    $countStmt = $conn->prepare($countQuery);
     if (!empty($params)) {
-        $stmt->bind_param($types, ...$params);
+        bindParams($countStmt, $types, $params);
     }
-    $stmt->execute();
-    $total = $stmt->get_result()->fetch_assoc()['total'];
+    $countStmt->execute();
+    $total = $countStmt->get_result()->fetch_assoc()['total'];
     
     // Get paginated data
     $query .= " ORDER BY r.last_name, r.first_name LIMIT ? OFFSET ?";
-    $params[] = $per_page;
-    $params[] = $offset;
-    $types .= 'ii';
+    $params_with_limit = array_merge($params, [$per_page, $offset]);
+    $types_with_limit = $types . 'ii';
     
     $stmt = $conn->prepare($query);
-    $stmt->bind_param($types, ...$params);
+    bindParams($stmt, $types_with_limit, $params_with_limit);
     $stmt->execute();
     $result = $stmt->get_result();
     
@@ -129,8 +148,6 @@ function handleListResidents() {
     echo json_encode($response);
 }
 
-
-
 function handleAccountRequests() {
     global $conn, $response;
     
@@ -141,7 +158,6 @@ function handleAccountRequests() {
     
     $offset = ($page - 1) * $per_page;
     
-    // Main query for fetching data
     $query = "SELECT r.*, ra.id as account_id, ra.account_status, ra.notes, 
               ra.date_processed, ra.date_requested,
               CONCAT(a.first_name, ' ', a.last_name) as processed_by
@@ -169,7 +185,6 @@ function handleAccountRequests() {
         $query .= " WHERE " . implode(" AND ", $where);
     }
     
-    // Count query
     $countQuery = "SELECT COUNT(*) as total,
                   SUM(CASE WHEN ra.account_status = 'Pending' THEN 1 ELSE 0 END) as pending_count
                   FROM residents r
@@ -180,106 +195,197 @@ function handleAccountRequests() {
     }
     
     $countStmt = $conn->prepare($countQuery);
-    if ($countStmt) {
-        if (!empty($params)) {
-            $countStmt->bind_param($types, ...$params);
-        }
-        $countStmt->execute();
-        $countResult = $countStmt->get_result()->fetch_assoc();
-        $total = $countResult['total'];
-        $pending_count = $countResult['pending_count'] ?? 0;
-    } else {
-        throw new Exception("Failed to prepare count query: " . $conn->error);
+    if (!empty($params)) {
+        bindParams($countStmt, $types, $params);
     }
+    $countStmt->execute();
+    $countResult = $countStmt->get_result()->fetch_assoc();
+    $total = $countResult['total'];
+    $pending_count = $countResult['pending_count'] ?? 0;
     
-    // Main data query with pagination
     $query .= " ORDER BY ra.date_requested DESC LIMIT ? OFFSET ?";
-    $limitParams = array_merge($params, [$per_page, $offset]);
-    $limitTypes = $types . 'ii';
+    $params_with_limit = array_merge($params, [$per_page, $offset]);
+    $types_with_limit = $types . 'ii';
     
     $stmt = $conn->prepare($query);
-    if ($stmt) {
-        $stmt->bind_param($limitTypes, ...$limitParams);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        $requests = [];
-        while ($row = $result->fetch_assoc()) {
-            $requests[] = $row;
-        }
-        
-        $response['success'] = true;
-        $response['data'] = $requests;
-        $response['pending_count'] = $pending_count;
-        $response['pagination'] = [
-            'total' => $total,
-            'page' => $page,
-            'per_page' => $per_page,
-            'total_pages' => ceil($total / $per_page)
-        ];
-    } else {
-        throw new Exception("Failed to prepare data query: " . $conn->error);
+    bindParams($stmt, $types_with_limit, $params_with_limit);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    $requests = [];
+    while ($row = $result->fetch_assoc()) {
+        $requests[] = $row;
     }
+    
+    $response['success'] = true;
+    $response['data'] = $requests;
+    $response['pending_count'] = $pending_count;
+    $response['pagination'] = [
+        'total' => $total,
+        'page' => $page,
+        'per_page' => $per_page,
+        'total_pages' => ceil($total / $per_page)
+    ];
     
     echo json_encode($response);
 }
 function handleAddResident() {
     global $conn, $response;
     
-    $data = json_decode(file_get_contents('php://input'), true);
+    header('Content-Type: application/json');
     
-    // Validate required fields
-    $required = ['firstName', 'lastName', 'sex', 'contactNumber', 'houseNumber', 'purok', 'birthdate'];
-    foreach ($required as $field) {
-        if (empty($data[$field])) {
-            throw new Exception("Missing required field: $field");
-        }
-    }
-    
-    // Calculate age
-    $birthdate = new DateTime($data['birthdate']);
-    $today = new DateTime();
-    $age = $today->diff($birthdate)->y;
-    
-    // Generate address
-    $address = "House {$data['houseNumber']}, Purok {$data['purok']}, Balas, Mexico, Pampanga, Philippines";
-    
-    // Insert resident
-    $stmt = $conn->prepare("INSERT INTO residents 
-        (first_name, last_name, middle_name, suffix, sex, birthdate, age, contact_number, email, house_number, purok, address)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    
-    $stmt->bind_param("ssssssisssss", 
-        $data['firstName'], $data['lastName'], $data['middleName'] ?? '', $data['suffix'] ?? '',
-        $data['sex'], $data['birthdate'], $age, $data['contactNumber'], $data['email'] ?? '',
-        $data['houseNumber'], $data['purok'], $address);
-    
-    if (!$stmt->execute()) {
-        throw new Exception("Failed to add resident: " . $stmt->error);
-    }
-    
-    $resident_id = $stmt->insert_id;
-    
-    // Create account if requested
-    if (!empty($data['createAccount']) && $data['createAccount'] === 'true') {
-        if (empty($data['email']) || empty($data['password'])) {
-            throw new Exception("Email and password are required to create an account");
+    try {
+        // Get input data
+        $data = $_POST;
+
+        // Validate required fields
+        $required = [
+            'firstName' => 'First name',
+            'lastName' => 'Last name',
+            'sex' => 'Sex',
+            'contactNumber' => 'Contact number',
+            'houseNumber' => 'House number',
+            'purok' => 'Purok',
+            'birthdate' => 'Birthdate'
+        ];
+        
+        $missingFields = [];
+        foreach ($required as $field => $name) {
+            if (empty($data[$field])) {
+                $missingFields[] = $name;
+            }
         }
         
-        $hashed_password = password_hash($data['password'], PASSWORD_DEFAULT);
-        
-        $stmt = $conn->prepare("INSERT INTO resident_accounts 
-            (resident_id, email, password) VALUES (?, ?, ?)");
-        $stmt->bind_param("iss", $resident_id, $data['email'], $hashed_password);
-        
-        if (!$stmt->execute()) {
-            throw new Exception("Failed to create resident account: " . $stmt->error);
+        if (!empty($missingFields)) {
+            throw new Exception('Missing required fields: ' . implode(', ', $missingFields));
         }
+        
+        // Process birthdate - ensure proper format
+        $birthdateInput = trim($data['birthdate']);
+        
+        // If only year is provided (e.g., "2003")
+        if (preg_match('/^\d{4}$/', $birthdateInput)) {
+            $birthdate = $birthdateInput . '-01-01'; // Default to January 1st of that year
+        }
+        // If full date is provided in YYYY-MM-DD format
+        elseif (preg_match('/^\d{4}-\d{2}-\d{2}$/', $birthdateInput)) {
+            $birthdate = $birthdateInput;
+        }
+        // If date is in another format, try to parse it
+        else {
+            $timestamp = strtotime($birthdateInput);
+            if ($timestamp === false) {
+                throw new Exception('Invalid birthdate format. Please use YYYY-MM-DD or year only.');
+            }
+            $birthdate = date('Y-m-d', $timestamp);
+        }
+
+        // Validate the final date
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $birthdate)) {
+            throw new Exception('Invalid birthdate format after conversion. Please use YYYY-MM-DD.');
+        }
+
+        // Calculate age
+        $birthdateObj = new DateTime($birthdate);
+        $today = new DateTime();
+        $age = $today->diff($birthdateObj)->y;
+
+        // Generate address
+        $address = "House {$data['houseNumber']}, Purok {$data['purok']}, Balas, Mexico, Pampanga, Philippines";
+
+        $middleName = $data['middleName'] ?? '';
+        $suffix = $data['suffix'] ?? '';
+        $email = $data['email'] ?? '';
+        $createAccount = isset($data['createAccount']) && $data['createAccount'] === 'true';
+
+        // Start transaction
+        $conn->begin_transaction();
+
+        try {
+            // Insert resident
+            $stmt = $conn->prepare("INSERT INTO residents 
+                (first_name, last_name, middle_name, suffix, sex, birthdate, age, contact_number, email, house_number, purok, address)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            
+            if (!$stmt) {
+                throw new Exception('Database error (prepare residents): ' . $conn->error);
+            }
+
+            $stmt->bind_param("sssssissssss", 
+                $data['firstName'],
+                $data['lastName'],
+                $middleName,
+                $suffix,
+                $data['sex'],
+                $birthdate,
+                $age,
+                $data['contactNumber'],
+                $email,
+                $data['houseNumber'],
+                $data['purok'],
+                $address
+            );
+
+            if (!$stmt->execute()) {
+                throw new Exception('Failed to add resident: ' . $stmt->error);
+            }
+
+            $residentId = $stmt->insert_id;
+
+            // If account creation is requested
+            if ($createAccount) {
+                if (empty($data['password'])) {
+                    throw new Exception('Password is required when creating an account');
+                }
+
+                $hashedPassword = password_hash($data['password'], PASSWORD_DEFAULT);
+                $accountStatus = 'Approved'; // Or 'Pending' if you want to approve manually
+                $dateRequested = date('Y-m-d H:i:s');
+                
+                $stmt = $conn->prepare("INSERT INTO resident_accounts 
+                    (resident_id, email, password, account_status, date_requested)
+                    VALUES (?, ?, ?, ?, ?)");
+                
+                if (!$stmt) {
+                    throw new Exception('Database error (prepare accounts): ' . $conn->error);
+                }
+
+                $stmt->bind_param("issss", 
+                    $residentId,
+                    $email,
+                    $hashedPassword,
+                    $accountStatus,
+                    $dateRequested
+                );
+
+                if (!$stmt->execute()) {
+                    throw new Exception('Failed to create resident account: ' . $stmt->error);
+                }
+            }
+
+            // Commit transaction
+            $conn->commit();
+
+            $response = [
+                'success' => true,
+                'message' => 'Resident added successfully.' . ($createAccount ? ' Account created.' : '')
+            ];
+
+        } catch (Exception $e) {
+            // Rollback transaction on error
+            $conn->rollback();
+            throw $e;
+        }
+
+    } catch (Exception $e) {
+        $response = [
+            'success' => false,
+            'message' => $e->getMessage()
+        ];
     }
     
-    $response['success'] = true;
-    $response['message'] = 'Resident added successfully';
     echo json_encode($response);
+    exit();
 }
 
 function handleEditResident() {
@@ -375,27 +481,29 @@ function handleVerifyResident() {
 function handleProcessRequest() {
     global $conn, $response;
     
-    $data = json_decode(file_get_contents('php://input'), true);
+    // Changed from json_decode to $_POST since we're using FormData
+    $id = $_POST['id'] ?? null;
+    $action = $_POST['action'] ?? null;
     
-    if (empty($data['id']) || empty($data['action'])) {
+    if (empty($id) || empty($action)) {
         throw new Exception("Request ID and action are required");
     }
     
     $user_id = getUserId();
-    $status = $data['action'] === 'approve' ? 'Approved' : 'Disapproved';
-    $note = $data['note'] ?? '';
+    $status = $action === 'approve' ? 'Approved' : 'Disapproved';
+    $note = $_POST['note'] ?? '';
     
     $stmt = $conn->prepare("UPDATE resident_accounts SET 
         account_status = ?, processed_by = ?, date_processed = NOW(), notes = ?
         WHERE id = ?");
-    $stmt->bind_param("sisi", $status, $user_id, $note, $data['id']);
+    $stmt->bind_param("sisi", $status, $user_id, $note, $id);
     
     if (!$stmt->execute()) {
         throw new Exception("Failed to process request: " . $stmt->error);
     }
     
     $response['success'] = true;
-    $response['message'] = "Request {$data['action']}d successfully";
+    $response['message'] = "Request {$action}d successfully";
     echo json_encode($response);
 }
 

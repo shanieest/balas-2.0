@@ -860,7 +860,7 @@ requireAuth();
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
     <script src="js/script.js"></script>
-<script>
+    <script>
     // Global variables
 let currentResidentId = null;
 let currentRequestId = null;
@@ -1146,13 +1146,18 @@ function updatePendingCount(pendingCount) {
 // Function to handle API responses
 function handleResponse(response) {
     if (!response.ok) {
-        throw new Error('Network response was not ok');
+        return response.text().then(text => {
+            throw new Error(text || 'Network response was not ok');
+        });
     }
+    
     return response.text().then(text => {
         try {
             return JSON.parse(text);
         } catch (e) {
-            throw new Error('Invalid JSON response: ' + text.substring(0, 100));
+            // Log the actual response for debugging
+            console.error('Invalid JSON response:', text.substring(0, 100));
+            throw new Error('Invalid JSON response from server');
         }
     });
 }
@@ -1660,11 +1665,19 @@ function processAccountRequest(id, action, note) {
         return;
     }
 
+    const submitBtn = getElement('#confirmProcessRequestBtn');
+    const originalText = submitBtn ? submitBtn.innerHTML : '';
+    
+    if (submitBtn) {
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+        submitBtn.disabled = true;
+    }
+
     // Create form data to properly send the request
     const formData = new FormData();
     formData.append('id', id);
     formData.append('action', action);
-    formData.append('note', note);
+    if (note) formData.append('note', note);
 
     fetch('residents-backend.php?action=process_request', {
         method: 'POST',
@@ -1690,6 +1703,12 @@ function processAccountRequest(id, action, note) {
     .catch(error => {
         console.error('Error:', error);
         showToast(`Failed to ${action} request: ` + error.message, 'danger');
+    })
+    .finally(() => {
+        if (submitBtn) {
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
     });
 }
 
@@ -1763,50 +1782,85 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Add resident form submission
-    const saveResidentBtn = getElement('#saveResidentBtn');
-    if (saveResidentBtn) {
-        saveResidentBtn.addEventListener('click', function() {
-            const form = getElement('#addResidentForm');
-            if (!form) return;
+// Add resident form submission
+const saveResidentBtn = getElement('#saveResidentBtn');
+if (saveResidentBtn) {
+    saveResidentBtn.addEventListener('click', function() {
+        const form = getElement('#addResidentForm');
+        if (!form) return;
+        
+        if (!form.checkValidity()) {
+            form.classList.add('was-validated');
+            return;
+        }
+
+        // Format the birthdate properly
+        const birthdateInput = getElement('#birthdate');
+        if (birthdateInput) {
+            const dateValue = birthdateInput.value;
             
-            if (!form.checkValidity()) {
-                form.classList.add('was-validated');
-                return;
+            // If only year is provided (e.g., "2003"), convert to full date
+            if (/^\d{4}$/.test(dateValue)) {
+                birthdateInput.value = dateValue + '-01-01'; // Default to January 1st
             }
-
-            const formData = new FormData(form);
-            const originalText = saveResidentBtn.innerHTML;
-            saveResidentBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
-            saveResidentBtn.disabled = true;
-
-            fetch('residents-backend.php?action=add', {
-                method: 'POST',
-                body: formData
-            })
-            .then(handleResponse)
-            .then(data => {
-                if (data.success) {
-                    showToast('Resident added successfully!', 'success');
-                    const modal = bootstrap.Modal.getInstance(getElement('#addResidentModal'));
-                    if (modal) modal.hide();
-                    form.reset();
-                    form.classList.remove('was-validated');
-                    refreshResidentList();
+            // If it's already in YYYY-MM-DD format, leave it as is
+            else if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+                // Valid format, no change needed
+            }
+            // If it's in another format, try to parse it
+            else {
+                const parsedDate = new Date(dateValue);
+                if (!isNaN(parsedDate.getTime())) {
+                    birthdateInput.value = parsedDate.toISOString().split('T')[0];
                 } else {
-                    throw new Error(data.message || 'Failed to save resident');
+                    showToast('Invalid birthdate format. Please use YYYY-MM-DD or year only.', 'danger');
+                    return;
                 }
-            })
-            .catch(error => {
-                showToast(error.message, 'danger');
-                console.error('Error:', error);
-            })
-            .finally(() => {
-                saveResidentBtn.innerHTML = originalText;
-                saveResidentBtn.disabled = false;
-            });
+            }
+        }
+
+        const formData = new FormData(form);
+        const originalText = saveResidentBtn.innerHTML;
+        
+        saveResidentBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+        saveResidentBtn.disabled = true;
+
+        fetch('residents-backend.php?action=add', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+            // First check if response is JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                return response.text().then(text => {
+                    throw new Error(text || 'Invalid response from server');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                showToast('Resident added successfully!', 'success');
+                const modal = bootstrap.Modal.getInstance(getElement('#addResidentModal'));
+                if (modal) modal.hide();
+                form.reset();
+                form.classList.remove('was-validated');
+                refreshResidentList();
+            } else {
+                throw new Error(data.message || 'Failed to save resident');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast(error.message || 'An error occurred', 'danger');
+        })
+        .finally(() => {
+            saveResidentBtn.innerHTML = originalText;
+            saveResidentBtn.disabled = false;
         });
-    }
+    });
+}
     
     // Update resident form submission
     const updateResidentBtn = getElement('#updateResidentBtn');
@@ -1831,7 +1885,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     // Approve/Reject request buttons in view modal
-   // Approve/Reject request buttons in view modal
 const approveRequestBtn = getElement('#approveRequestBtn');
 const rejectRequestBtn = getElement('#rejectRequestBtn');
 if (approveRequestBtn && rejectRequestBtn) {
@@ -1846,18 +1899,20 @@ if (approveRequestBtn && rejectRequestBtn) {
     });
 }
     // Confirm process request button
+
 const confirmProcessRequestBtn = getElement('#confirmProcessRequestBtn');
 if (confirmProcessRequestBtn) {
     confirmProcessRequestBtn.addEventListener('click', function() {
         const requestId = currentRequestId; // Use the global variable
-        const action = getElement('#requestActionType')?.value;
+        const action = this.textContent.trim().toLowerCase(); // Get action from button text
         const note = getElement('#requestNote')?.value || '';
         
-        if (requestId && action) {
-            processAccountRequest(requestId, action, note);
-        } else {
-            showToast('Request ID and action are required', 'danger');
+        if (!requestId) {
+            showToast('Request ID is required', 'danger');
+            return;
         }
+
+        processAccountRequest(requestId, action, note);
     });
 }
     // Calculate age when birthdate changes

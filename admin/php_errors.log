@@ -1,0 +1,10 @@
+[05-Aug-2025 14:29:42 Europe/Berlin] PHP Fatal error:  Uncaught Error: mysqli_stmt::bind_param(): Argument #4 cannot be passed by reference in C:\xampp\htdocs\Balas 2.0\admin\residents-backend.php:292
+Stack trace:
+#0 C:\xampp\htdocs\Balas 2.0\admin\residents-backend.php(30): handleAddResident()
+#1 {main}
+  thrown in C:\xampp\htdocs\Balas 2.0\admin\residents-backend.php on line 292
+[05-Aug-2025 14:49:08 Europe/Berlin] PHP Fatal error:  Uncaught Error: mysqli_stmt::bind_param(): Argument #4 cannot be passed by reference in C:\xampp\htdocs\Balas 2.0\admin\residents-backend.php:290
+Stack trace:
+#0 C:\xampp\htdocs\Balas 2.0\admin\residents-backend.php(41): handleAddResident()
+#1 {main}
+  thrown in C:\xampp\htdocs\Balas 2.0\admin\residents-backend.php on line 290
