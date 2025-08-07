@@ -1,3 +1,11 @@
+<?php
+session_start();
+if (isset($_SESSION['registration_success'])) {
+    echo '<div class="alert alert-success">'.$_SESSION['registration_success'].'</div>';
+    unset($_SESSION['registration_success']);
+}
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -206,7 +214,7 @@
 
                 <!-- Registration Form -->
                 <div class="tab-pane fade" id="register" role="tabpanel" aria-labelledby="register-tab">
-                    <form action="signup-backend.php" method="POST" enctype="multipart/form-data">
+                    <form id="registrationForm" action="signup-backend.php" method="POST" enctype="multipart/form-data">
                         <div class="form-section">
                             <h5 class="form-section-title"><i class="fas fa-user"></i> Personal Information</h5>
                             <div class="form-row">
@@ -262,7 +270,7 @@
                                     <div class="input-group-prepend">
                                         <span class="input-group-text"><i class="fas fa-envelope"></i></span>
                                     </div>
-                                    <input type="email" class="form-control" id="registerEmail" name="registerEmail" placeholder="Enter your email" required>
+                                    <input type="email" class="form-control" id="registerEmail" name="email" placeholder="Enter your email" required>
                                 </div>
                             </div>
                             <div class="form-group">
@@ -271,12 +279,12 @@
                                     <div class="input-group-prepend">
                                         <span class="input-group-text"><i class="fas fa-phone"></i></span>
                                     </div>
-                                    <input type="tel" class="form-control" id="phone" name="phone" placeholder="Enter your phone number" required>
+                                    <input type="tel" class="form-control" id="phone" name="contactNumber" placeholder="Enter your phone number" required>
                                 </div>
                             </div>
                             <div class="form-group">
                                 <label for="house_no">House No.*</label>
-                                <input type="text" class="form-control" id="house_no" name="house_no" placeholder="Enter House No." required>
+                                <input type="text" class="form-control" id="house_no" name="houseNumber" placeholder="Enter House No." required>
                             </div>
 
                             <div class="form-group">
@@ -299,7 +307,7 @@
                                     <div class="input-group-prepend">
                                         <span class="input-group-text"><i class="fas fa-lock"></i></span>
                                     </div>
-                                    <input type="password" class="form-control" id="registerPassword" name="registerPassword" placeholder="Create a password" required>
+                                    <input type="password" class="form-control" id="registerPassword" name="password" placeholder="Create a password" required>
                                 </div>
                                 <small class="form-text text-muted">Must be at least 8 characters long</small>
                             </div>
@@ -343,8 +351,8 @@
                             <div class="form-group">
                                 <label for="idUpload">Upload ID</label>
                                 <div class="custom-file">
-                                    <input type="file" class="custom-file-input" id="idUpload" name="idUpload" accept="image/*,.pdf" required>
-                                    <label class="custom-file-label" for="idUpload">Choose file</label>
+                                    <input type="file" class="custom-file-input" id="idUpload" name="validId" accept="image/*,.pdf" required>
+                                    <label class="custom-file-label" for="validId">Choose file</label>
                                 </div>
                                 <img id="idPreview" class="id-preview" alt="ID Preview">
                                 <small class="form-text text-muted">Max file size: 5MB (JPG, PNG, PDF)</small>
@@ -355,7 +363,7 @@
                             <input type="checkbox" class="form-check-input" id="agreeTerms" required>
                             <label class="form-check-label" for="agreeTerms">I certify that all information provided is accurate and I agree to the <a href="#" style="color: var(--primary-blue);">terms and conditions</a></label>
                         </div>
-                        <button type="submit" class="btn btn-auth">
+                        <button type="submit" class="btn btn-auth" id="submitBtn">
                             <i class="fas fa-user-plus"></i> Register Account
                         </button>
                     </form>
@@ -377,6 +385,46 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
     <!-- Custom JS -->
     <script>
+        $(document).ready(function() {
+            // Handle form submission
+            $('#registrationForm').on('submit', function(e) {
+                e.preventDefault();
+                
+                // Disable submit button
+                $('#submitBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Processing...');
+                
+                // Submit form via AJAX
+                $.ajax({
+                    url: $(this).attr('action'),
+                    type: 'POST',
+                    data: new FormData(this),
+                    processData: false,
+                    contentType: false,
+                    success: function(response) {
+                        if (response.success) {
+                            // Show success message
+                            window.location.href = 'signup-success.php';
+                        } else {
+                            // Show errors
+                            alert(response.message);
+                            if (response.errors) {
+                                // Highlight fields with errors
+                                $.each(response.errors, function(field, message) {
+                                    $('#' + field).addClass('is-invalid');
+                                    $('#' + field).after('<div class="invalid-feedback">' + message + '</div>');
+                                });
+                            }
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        alert('An error occurred: ' + error);
+                    },
+                    complete: function() {
+                        $('#submitBtn').prop('disabled', false).html('<i class="fas fa-user-plus"></i> Register Account');
+                    }
+                });
+            });
+        });
         $(document).ready(function(){
             // Initialize datepicker
             $('.datepicker').datepicker({
