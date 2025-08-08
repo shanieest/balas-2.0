@@ -4,7 +4,7 @@ if (isset($_SESSION['registration_success'])) {
     echo '<div class="alert alert-success">'.$_SESSION['registration_success'].'</div>';
     unset($_SESSION['registration_success']);
 }
-?>
+?> 
 
 <!DOCTYPE html>
 <html lang="en">
