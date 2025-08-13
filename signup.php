@@ -4,6 +4,12 @@ if (isset($_SESSION['registration_success'])) {
     echo '<div class="alert alert-success">'.$_SESSION['registration_success'].'</div>';
     unset($_SESSION['registration_success']);
 }
+
+if (isset($_SESSION['login_error'])) {
+    echo '<div class="alert alert-danger">'.$_SESSION['login_error'].'</div>';
+    unset($_SESSION['login_error']);
+}
+
 ?> 
 
 <!DOCTYPE html>
@@ -182,14 +188,15 @@ if (isset($_SESSION['registration_success'])) {
                     <div class="alert alert-primary">
                         <i class="fas fa-info-circle"></i> Please login with your registered email address.
                     </div>
-                    <form>
+                    <form id="loginForm">
+                        <input type="hidden" name="csrf_token" value="<?php echo $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); ?>">
                         <div class="form-group">
                             <label for="loginEmail">Email</label>
                             <div class="input-group">
                                 <div class="input-group-prepend">
                                     <span class="input-group-text"><i class="fas fa-envelope"></i></span>
                                 </div>
-                                <input type="email" class="form-control" id="loginEmail" placeholder="Enter your email" required>
+                                <input type="email" class="form-control" id="loginEmail" name="email" placeholder="Enter your email" required>
                             </div>
                         </div>
                         <div class="form-group">
@@ -198,15 +205,15 @@ if (isset($_SESSION['registration_success'])) {
                                 <div class="input-group-prepend">
                                     <span class="input-group-text"><i class="fas fa-lock"></i></span>
                                 </div>
-                                <input type="password" class="form-control" id="loginPassword" placeholder="Enter your password" required>
+                                <input type="password" class="form-control" id="loginPassword" name="password" placeholder="Enter your password" required>
                             </div>
                         </div>
                         <div class="form-group form-check">
-                            <input type="checkbox" class="form-check-input" id="rememberMe">
+                            <input type="checkbox" class="form-check-input" id="rememberMe" name="rememberMe">
                             <label class="form-check-label" for="rememberMe">Remember me</label>
-                            <a href="#" class="float-right" style="color: var(--primary-red);">Forgot password?</a>
+                            <a href="forgot-password.php" class="float-right" style="color: var(--primary-red);">Forgot password?</a>
                         </div>
-                        <button type="submit" class="btn btn-auth">
+                        <button type="submit" class="btn btn-auth" id="loginBtn">
                             <i class="fas fa-sign-in-alt"></i> Login
                         </button>
                     </form>
@@ -386,6 +393,32 @@ if (isset($_SESSION['registration_success'])) {
     <!-- Custom JS -->
     <script>
         $(document).ready(function() {
+        //login
+        $('#loginForm').on('submit', function(e) {
+                e.preventDefault();
+                
+                $('#loginBtn').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Logging in...');
+                
+                $.ajax({
+                    url: 'login-backend.php',
+                    type: 'POST',
+                    data: $(this).serialize(),
+                    dataType: 'json',
+                    success: function(response) {
+                        if (response.success) {
+                            window.location.href = response.redirect || 'dashboard.php';
+                        } else {
+                            alert(response.message);
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        alert('An error occurred during login');
+                    },
+                    complete: function() {
+                        $('#loginBtn').prop('disabled', false).html('<i class="fas fa-sign-in-alt"></i> Login');
+                    }
+                });
+            });
             // Handle form submission
             $('#registrationForm').on('submit', function(e) {
                 e.preventDefault();

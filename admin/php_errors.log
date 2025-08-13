@@ -8,3 +8,23 @@ Stack trace:
 #0 C:\xampp\htdocs\Balas 2.0\admin\residents-backend.php(41): handleAddResident()
 #1 {main}
   thrown in C:\xampp\htdocs\Balas 2.0\admin\residents-backend.php on line 290
+[13-Aug-2025 11:20:48 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined function handleAccountRequests() in C:\xampp\htdocs\balas-2.0\admin\residents-backend.php:38
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\balas-2.0\admin\residents-backend.php on line 38
+[13-Aug-2025 11:21:27 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined function handleAccountRequests() in C:\xampp\htdocs\balas-2.0\admin\residents-backend.php:38
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\balas-2.0\admin\residents-backend.php on line 38
+[13-Aug-2025 11:23:30 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined function handleAccountRequests() in C:\xampp\htdocs\balas-2.0\admin\residents-backend.php:38
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\balas-2.0\admin\residents-backend.php on line 38
+[13-Aug-2025 11:24:01 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined function handleAccountRequests() in C:\xampp\htdocs\balas-2.0\admin\residents-backend.php:38
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\balas-2.0\admin\residents-backend.php on line 38
+[13-Aug-2025 11:24:49 Europe/Berlin] PHP Fatal error:  Uncaught Error: Call to undefined function handleAccountRequests() in C:\xampp\htdocs\balas-2.0\admin\residents-backend.php:38
+Stack trace:
+#0 {main}
+  thrown in C:\xampp\htdocs\balas-2.0\admin\residents-backend.php on line 38

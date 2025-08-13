@@ -1,10 +1,8 @@
 <?php 
 require_once __DIR__ . '/includes/auth.php';
 requireAuth();
-require_once __DIR__ . '/includes/db.php'; // ensure database is loaded
-
-// Use correct variable name for MySQLi object
-global $conn; // only needed if inside a function
+require_once __DIR__ . '/includes/db.php'; 
+global $conn; 
 
 // Get user data
 $user_id = getUserId();
@@ -154,29 +152,9 @@ $profile_photo = $user['photo_path'] ?? 'assets/admin-avatar.jpg';
         </div>
     </div>
 
-    <!-- Delete Account Modal -->
-    <div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-labelledby="deleteAccountModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title" id="deleteAccountModalLabel">Delete Account</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Are you absolutely sure you want to delete your account?</p>
-                    <p>This action cannot be undone. This will permanently delete your account and remove all your data from our servers.</p>
-                    <div class="mb-3">
-                        <label for="deleteConfirmation" class="form-label">Please type <strong>DELETE MY ACCOUNT</strong> to confirm</label>
-                        <input type="text" class="form-control" id="deleteConfirmation" name="confirmation">
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn" disabled>Delete Account</button>
-                </div>
-            </div>
-        </div>
-    </div>
+     <?php include 'modals/profileModal.php'; ?>
+
+
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
